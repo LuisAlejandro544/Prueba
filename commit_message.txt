@@ -1,13 +1,13 @@
-feat(map-pipeline): Implementar flujo automatizado de generación de mapas mundiales y datos GIS con GitHub Actions
+fix(map-generator): Corregir inconsistencias cartográficas, excluir Antártida y normalizar colores históricos
 
-- Flujo de GitHub Actions con activación manual (`.github/workflows/generate-world-map.yml`) configurable en resolución y escala de detalle (10m, 50m, 110m).
-- Script de procesamiento geoespacial (`scripts/generate_world_map.py`) utilizando dependencias reales de la industria (`geopandas`, `shapely`, `matplotlib`, `pillow`).
-- Descarga automatizada de geometrías de dominio público de Natural Earth para todos los países del mundo y sus provincias/estados (`Admin 0` y `Admin 1`).
-- Generación del dataset maestro estructurado `world_map_data.json` con metadatos de países, provincias, coordenadas centroides (lat/lon y píxeles) y cálculo topológico de fronteras/vecinos adyacentes.
-- Renderizado de mapas de alta resolución:
-  * `world_provinces_blank.png`: mapa táctico base con delimitación de fronteras provinciales e internacionales destacadas.
-  * `world_provinces_political.png`: mapa con paleta política por naciones soberanas.
-  * `world_provinces_ids.png`: mapa indexado por canal RGB exacto para detección táctil instantánea en tiempo O(1) sin sobrecarga de CPU.
-- Exportación de capas vectoriales estándar `world_provinces.geojson` y `world_countries.geojson` modificables en QGIS o geojson.io para futuras ediciones de fronteras.
-- Empaquetado automático exclusivamente como artefacto descargable (retención 90 días), garantizando que las imágenes generadas y archivos de mapa nunca se commiteen al repositorio de Git ni ensucien el árbol de fuentes.
-- Actualización integral de la documentación técnica del proyecto (`README.md`, `ROADMAP.md`, `STRUCTURE.md`, `AI_CONTEXT.md`).
+- Corrección de la mancha negra en Brasil (Minas Gerais/DF) mediante normalización y rescate de códigos ISO ambiguos y mapeo por entidad soberana.
+- Exclusión automática de la Antártida y recorte de latitudes extremas (-60°S a 84°N), optimizando un 25% de espacio vertical útil para pantallas móviles.
+- Implementación de paleta política armónica con colores patrios históricos para Latinoamérica (Argentina en celeste, Brasil en verde, Chile en rojo, Colombia en amarillo, etc.) y potencias mundiales.
+- Calibración de bordes provinciales (0.22) y fronteras soberanas nítidas (0.9) de alto contraste con fondo oceánico estratégico oscuro (#111827).
+- Sincronización del cálculo de centroides y conversión de píxeles al nuevo encuadre geográfico sin la Antártida.
+- Preservación de la exportación exclusiva en artefacto descargable ZIP (retención 90 días) en GitHub Actions sin realizar commits en el repositorio de Git.
+- Incorporación integral de zonas marítimas (Sea Zones) navegables e indexadas para movimiento de flotas, convoyes y desembarcos.
+- Mapeo y renderizado de puntos estratégicos navales (Canal de Panamá, Suez, Gibraltar, Magallanes, Bósforo, Malaca, Ormuz) y principales megapuertos y bases navales mundiales.
+- Realce geométrico de islas pequeñas e insulares manteniendo su forma realista para máxima visibilidad táctica en dispositivos móviles.
+- Enriquecimiento del dataset world_map_data.json con tipos de terreno, acceso costero y mares adyacentes, demografía histórica (población y manpower militar), recursos económicos y capitales nacionales.
+- Generación automatizada de base de datos relacional SQLite (world_map.db) indexada para Android, permitiendo consultas instantáneas en O(1) y eliminando la saturación de la ventana de contexto de las IAs.

@@ -67,9 +67,11 @@ jobs:
             map_data/world_provinces_blank.png
             map_data/world_provinces_political.png
             map_data/world_provinces_ids.png
+            map_data/world_map.db
             map_data/world_map_data.json
             map_data/world_provinces.geojson
             map_data/world_countries.geojson
+            map_data/world_sea_zones.geojson
             map_data/README_MAP.md
           if-no-files-found: error
           retention-days: 90

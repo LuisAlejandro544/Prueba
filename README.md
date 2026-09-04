@@ -46,11 +46,12 @@ Para evitar buscar mapas manualmente en internet o lidiar con imágenes sin divi
    - **Nivel de detalle geográfico:** `10m` (ultra detallado), `50m` (equilibrado recomendado) o `110m` (rápido).
    - **Ancho y Alto:** Resolución en píxeles (por defecto `4096` x `2048`, o resoluciones mayores como `8192` x `4096`).
 5. El flujo genera y empaqueta:
-   - `world_provinces_blank.png`: Mapa táctico limpio con todas las provincias y fronteras.
-   - `world_provinces_political.png`: Mapa con colores patrios de todas las naciones del mundo.
-   - `world_provinces_ids.png`: Mapa de IDs por píxel RGB para detección de toques sin coste de rendimiento.
-   - `world_map_data.json`: Archivo JSON completo con países, provincias, coordenadas centroides (lat/lon y píxeles) y adyacencias topológicas (qué provincia comparte frontera con cuál).
-   - `world_provinces.geojson` y `world_countries.geojson`: Capas vectoriales estándar editables.
+   - `world_provinces_political.png`: Mapa político con colores patrios históricos de todas las naciones, zonas marítimas navegables, puertos clave y canales/estrechos estratégicos.
+   - `world_provinces_blank.png`: Mapa táctico limpio con provincias y mares, ideal como lienzo para mods.
+   - `world_provinces_ids.png`: Mapa de IDs por píxel RGB (provincias terrestres y mares indexados) para detección táctil instantánea en tiempo O(1).
+   - `world_map.db`: Base de datos relacional SQLite completa e indexada para Android (Room o nativo). Evita saturar la ventana de contexto de las IAs y permite consultas instantáneas en O(1).
+   - `world_map_data.json`: Archivo JSON completo con países, provincias, zonas marítimas, estrechos/canales, puertos, adyacencias topológicas, tipos de terreno, acceso al mar, demografía y recursos económicos.
+   - `world_provinces.geojson`, `world_countries.geojson` y `world_sea_zones.geojson`: Capas vectoriales estándar editables en QGIS o geojson.io.
    - **Artefacto descargable (ZIP):** Todos los archivos se empaquetan en un artefacto descargable (con 90 días de retención). **Nunca se commitean al repositorio** para que puedas revisarlos y probarlos tranquilamente en tu dispositivo sin ensuciar Git.
 
 ### Modificación del Mapa para el Futuro

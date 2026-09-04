@@ -29,18 +29,18 @@ Plan de evolución estratégica y técnica para el juego, su mini motor nativo y
 ### ✅ Fase 3: Pipeline Automatizado de Cartografía Mundial y Datos GIS (Completada)
 - [x] Creación del script generador de mapas geoespaciales (`scripts/generate_world_map.py`) con librerías estándar GIS (`geopandas`, `shapely`, `matplotlib`, `pillow`).
 - [x] Extracción y procesamiento de todas las provincias (`Admin 1`) y países soberanos (`Admin 0`) de la base de datos abierta Natural Earth.
-- [x] Generación del dataset maestro estructurado `world_map_data.json` con catálogo de países, provincias, coordenadas centroides (lat/lon y píxeles) y cálculo de fronteras adyacentes.
+- [x] Generación del dataset maestro estructurado `world_map_data.json` y la base de datos relacional `world_map.db` (SQLite) con esquema indexado, permitiendo consultas SQL ultra rápidas y protegiendo la ventana de contexto de las IAs contra saturación.
 - [x] Renderizado automático de tres modalidades de mapa en alta resolución:
   - Mapa táctico con delimitación de fronteras provinciales e internacionales destacadas (`world_provinces_blank.png`).
   - Mapa político con tonos patrios armonizados (`world_provinces_political.png`).
   - Mapa indexado por canal RGB (`world_provinces_ids.png`) para selección táctil instantánea O(1) sin sobrecargar el procesador móvil.
-- [x] Exportación de capas vectoriales abiertas `world_provinces.geojson` y `world_countries.geojson` editables en software GIS (QGIS) o herramientas web (geojson.io).
+- [x] Exportación de capas vectoriales abiertas `world_provinces.geojson`, `world_countries.geojson` y `world_sea_zones.geojson` editables en software GIS (QGIS) o herramientas web (geojson.io).
 - [x] Flujo de GitHub Actions con activación manual (`generate-world-map.yml`) configurable por escala (10m, 50m, 110m) y dimensiones de imagen, empaquetando los archivos exclusivamente como artefacto descargable (ZIP) sin subirlos al repositorio.
 
 ---
 
 ### ⏳ Fase 4: Integración del Mapa Mundial en el Motor y Movimiento Táctico (Próxima)
-- [ ] Carga del archivo `world_map_data.json` en el repositorio de datos de la aplicación.
+- [ ] Integración de la base de datos `world_map.db` (SQLite / Room) en la aplicación Android.
 - [ ] Detección táctil por píxel en Compose utilizando el mapa indexado de IDs.
 - [ ] Selección interactiva de provincias y regimientos militares en el mapa.
 - [ ] Trazado de rutas de movimiento de tropas entre provincias vecinas utilizando la lista de adyacencias calculada.

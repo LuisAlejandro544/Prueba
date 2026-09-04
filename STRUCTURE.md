@@ -28,12 +28,14 @@ Detalle de la jerarquía de directorios, módulos y componentes del juego, su mi
 │   └── requirements.txt               # Dependencias GIS (geopandas, shapely, matplotlib, pillow)
 │
 ├── map_data/                          # Salida de la Generación Cartográfica (artefactos)
-│   ├── world_map_data.json            # Dataset maestro con países, provincias y adyacencias
-│   ├── world_provinces_blank.png      # Mapa táctico con delimitación de fronteras
-│   ├── world_provinces_political.png  # Mapa coloreado por soberanía nacional
+│   ├── world_map.db                   # Base de datos SQLite relacional indexada (eficiente para IA y Android)
+│   ├── world_map_data.json            # Dataset maestro JSON con países, provincias, economía y adyacencias
+│   ├── world_provinces_blank.png      # Mapa táctico con delimitación de fronteras y mares
+│   ├── world_provinces_political.png  # Mapa coloreado por soberanía nacional, puertos y canales
 │   ├── world_provinces_ids.png        # Mapa de IDs por canal RGB exacto (tiempo O(1))
 │   ├── world_provinces.geojson        # Capa vectorial estándar de provincias (editable en QGIS/web)
 │   ├── world_countries.geojson        # Capa vectorial estándar de países (editable en QGIS/web)
+│   ├── world_sea_zones.geojson        # Capa vectorial estándar de zonas marítimas (editable en QGIS/web)
 │   └── README_MAP.md                  # Documentación de uso y edición del mapa
 │
 └── app/
