@@ -52,13 +52,8 @@ jobs:
             -dname "CN=Android Debug,O=Android,C=US"
           ls -la debug.keystore
 
-      - name: 6. Preparar entorno y permisos de ejecución
+      - name: 6. Preparar permisos de ejecución
         run: |
-          if [ -f ".env.example" ] && [ ! -f ".env" ]; then
-            cp .env.example .env
-          else
-            touch .env
-          fi
           chmod +x gradlew
           chmod +x app/src/main/rust/build_rust.sh
 
