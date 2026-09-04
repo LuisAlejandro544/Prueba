@@ -1,13 +1,5 @@
-fix(map-generator): Corregir inconsistencias cartográficas, excluir Antártida y normalizar colores históricos
+fix(map-generator): Corregir error de serialización int64 en JSON y SQLite
 
-- Corrección de la mancha negra en Brasil (Minas Gerais/DF) mediante normalización y rescate de códigos ISO ambiguos y mapeo por entidad soberana.
-- Exclusión automática de la Antártida y recorte de latitudes extremas (-60°S a 84°N), optimizando un 25% de espacio vertical útil para pantallas móviles.
-- Implementación de paleta política armónica con colores patrios históricos para Latinoamérica (Argentina en celeste, Brasil en verde, Chile en rojo, Colombia en amarillo, etc.) y potencias mundiales.
-- Calibración de bordes provinciales (0.22) y fronteras soberanas nítidas (0.9) de alto contraste con fondo oceánico estratégico oscuro (#111827).
-- Sincronización del cálculo de centroides y conversión de píxeles al nuevo encuadre geográfico sin la Antártida.
-- Preservación de la exportación exclusiva en artefacto descargable ZIP (retención 90 días) en GitHub Actions sin realizar commits en el repositorio de Git.
-- Incorporación integral de zonas marítimas (Sea Zones) navegables e indexadas para movimiento de flotas, convoyes y desembarcos.
-- Mapeo y renderizado de puntos estratégicos navales (Canal de Panamá, Suez, Gibraltar, Magallanes, Bósforo, Malaca, Ormuz) y principales megapuertos y bases navales mundiales.
-- Realce geométrico de islas pequeñas e insulares manteniendo su forma realista para máxima visibilidad táctica en dispositivos móviles.
-- Enriquecimiento del dataset world_map_data.json con tipos de terreno, acceso costero y mares adyacentes, demografía histórica (población y manpower militar), recursos económicos y capitales nacionales.
-- Generación automatizada de base de datos relacional SQLite (world_map.db) indexada para Android, permitiendo consultas instantáneas en O(1) y eliminando la saturación de la ventana de contexto de las IAs.
+- Implementación de la clase NpEncoder heredada de json.JSONEncoder y función recursiva sanitize_for_json para convertir de forma estricta los tipos NumPy (int64, float64, ndarray) a tipos primitivos de Python.
+- Conversión explícita a tipos nativos (int, float, str) en los cálculos de adyacencias topológicas de provincias terrestres (neighbors) y zonas marítimas adyacentes (adjacent_seas).
+- Corrección de la estructura de inserción en SQLite (world_map.db) para las tablas 'provinces' y 'sea_zones', garantizando compatibilidad total con Android y consultas directas sin saturar la ventana de contexto de modelos de IA.

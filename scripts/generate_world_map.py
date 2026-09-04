@@ -34,6 +34,39 @@ from matplotlib.colors import to_hex
 from PIL import Image, ImageDraw
 
 
+class NpEncoder(json.JSONEncoder):
+    """Codificador JSON robusto que convierte tipos de NumPy y GeoPandas a tipos primitivos de Python."""
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+        return super(NpEncoder, self).default(obj)
+
+
+def sanitize_for_json(data: Any) -> Any:
+    """Convierte recursivamente cualquier entero, flotante o colección de NumPy en tipos nativos de Python."""
+    if isinstance(data, dict):
+        return {str(k): sanitize_for_json(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [sanitize_for_json(v) for v in data]
+    elif isinstance(data, tuple):
+        return tuple(sanitize_for_json(v) for v in data)
+    elif isinstance(data, np.integer):
+        return int(data)
+    elif isinstance(data, np.floating):
+        return float(data)
+    elif isinstance(data, np.ndarray):
+        return sanitize_for_json(data.tolist())
+    elif isinstance(data, np.bool_):
+        return bool(data)
+    return data
+
+
 NATURAL_EARTH_MIRRORS = [
     "https://naturalearth.s3.amazonaws.com",
     "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/zips"
@@ -512,8 +545,9 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
         cand_idx = list(sea_sindex.intersection(geom.bounds))
         sea_neighbors = []
         for c in cand_idx:
-            if c != i and geom.touches(gdf_seas.geometry.iloc[c]):
-                sea_neighbors.append(10001 + c)
+            c_idx = int(c)
+            if c_idx != int(i) and geom.touches(gdf_seas.geometry.iloc[c_idx]):
+                sea_neighbors.append(int(10001 + c_idx))
         sea_zones_list[i]["adjacent_seas"] = sorted(sea_neighbors)
 
     # 9. Procesar Provincias Terrestres y Conexión Costa-Mar
@@ -563,8 +597,9 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
         sea_cand = list(sea_sindex.intersection(geom.bounds))
         adjacent_seas: List[int] = []
         for s in sea_cand:
-            if geom.touches(gdf_seas.geometry.iloc[s]) or geom.intersects(gdf_seas.geometry.iloc[s]):
-                adjacent_seas.append(10001 + s)
+            s_idx = int(s)
+            if geom.touches(gdf_seas.geometry.iloc[s_idx]) or geom.intersects(gdf_seas.geometry.iloc[s_idx]):
+                adjacent_seas.append(int(10001 + s_idx))
         is_coastal = len(adjacent_seas) > 0
 
         # Atributos económicos, demográficos y de terreno
@@ -623,8 +658,9 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
         cand_idx = list(prov_sindex.intersection(geom.bounds))
         neighbors: List[int] = []
         for cand in cand_idx:
-            if cand != i and geom.touches(gdf_provinces.geometry.iloc[cand]):
-                neighbors.append(cand + 1)
+            c_idx = int(cand)
+            if c_idx != int(i) and geom.touches(gdf_provinces.geometry.iloc[c_idx]):
+                neighbors.append(int(c_idx + 1))
         provinces_list[i]["neighbors"] = sorted(neighbors)
 
     # 11. Calcular píxeles de Puertos Principales y Estrechos Estratégicos
@@ -665,11 +701,11 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
             "bounds": {
                 "min_lon": -180.0,
                 "max_lon": 180.0,
-                "min_lat": min_lat,
-                "max_lat": max_lat
+                "min_lat": float(min_lat),
+                "max_lat": float(max_lat)
             },
-            "dimensions": {"width": width, "height": height},
-            "scale": scale,
+            "dimensions": {"width": int(width), "height": int(height)},
+            "scale": str(scale),
             "total_countries": len(countries_dict),
             "total_land_provinces": len(provinces_list),
             "total_sea_zones": len(sea_zones_list),
@@ -683,8 +719,11 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
         "strategic_straits": straits_mapped,
         "major_ports": ports_mapped
     }
+    # Sanitizar explícitamente cualquier tipo NumPy para garantizar 100% serialización JSON nativa
+    full_dataset = sanitize_for_json(full_dataset)
+
     with open(output_dir / "world_map_data.json", 'w', encoding='utf-8') as f:
-        json.dump(full_dataset, f, ensure_ascii=False, indent=2)
+        json.dump(full_dataset, f, ensure_ascii=False, indent=2, cls=NpEncoder)
     print(f" -> Guardado: world_map_data.json ({(output_dir / 'world_map_data.json').stat().st_size / 1024 / 1024:.2f} MB)")
 
     # 14. Generar Base de Datos SQLite (world_map.db) para Android y consultas de IA sin saturar contexto
@@ -707,7 +746,7 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     );
     """)
     for k, v in full_dataset["metadata"].items():
-        val_str = json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else str(v)
+        val_str = json.dumps(v, ensure_ascii=False, cls=NpEncoder) if isinstance(v, (dict, list)) else str(v)
         cur.execute("INSERT INTO metadata (key, value) VALUES (?, ?);", (k, val_str))
 
     # Tabla countries
@@ -729,15 +768,15 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
         INSERT INTO countries (id, name, iso_a2, iso_a3, continent, subregion, color_hex, capital, major_ports)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
         """, (
-            c_id,
-            c_data["name"],
-            c_data["iso_a2"],
-            c_data["iso_a3"],
-            c_data["continent"],
-            c_data["subregion"],
-            c_data["color_hex"],
-            c_data.get("capital"),
-            json.dumps(c_data.get("major_ports", []), ensure_ascii=False)
+            str(c_id),
+            str(c_data["name"]),
+            str(c_data["iso_a2"]),
+            str(c_data["iso_a3"]),
+            str(c_data["continent"]),
+            str(c_data["subregion"]),
+            str(c_data["color_hex"]),
+            str(c_data.get("capital")) if c_data.get("capital") else None,
+            json.dumps(c_data.get("major_ports", []), ensure_ascii=False, cls=NpEncoder)
         ))
 
     # Tabla provinces
@@ -776,27 +815,27 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
             industrial_level, is_capital, neighbors
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """, (
-            p["id"],
-            p["name"],
-            p["country_id"],
-            p["color_hex"],
-            p["color_rgb"][0],
-            p["color_rgb"][1],
-            p["color_rgb"][2],
-            p["centroid"]["lat"],
-            p["centroid"]["lon"],
-            p["centroid"]["pixel_x"],
-            p["centroid"]["pixel_y"],
+            int(p["id"]),
+            str(p["name"]),
+            str(p["country_id"]),
+            str(p["color_rgb"]["hex"] if isinstance(p["color_rgb"], dict) else p.get("color_hex", "")),
+            int(p["color_rgb"]["r"] if isinstance(p["color_rgb"], dict) else p["color_rgb"][0]),
+            int(p["color_rgb"]["g"] if isinstance(p["color_rgb"], dict) else p["color_rgb"][1]),
+            int(p["color_rgb"]["b"] if isinstance(p["color_rgb"], dict) else p["color_rgb"][2]),
+            float(p["center"]["lat"]),
+            float(p["center"]["lon"]),
+            int(p["center"]["pixel_x"]),
+            int(p["center"]["pixel_y"]),
             1 if p["is_coastal"] else 0,
-            json.dumps(p["adjacent_seas"]),
-            p["terrain"],
-            p["population"],
-            p["manpower"],
-            p["resource"],
-            p["resource_amount"],
-            p["industrial_level"],
+            json.dumps(p["adjacent_seas"], cls=NpEncoder),
+            str(p["terrain"]),
+            int(p["population"]),
+            int(p["manpower"]),
+            str(p["resource"]),
+            int(p["resource_amount"]),
+            int(p["industrial_level"]),
             1 if p["is_capital"] else 0,
-            json.dumps(p["neighbors"])
+            json.dumps(p["neighbors"], cls=NpEncoder)
         ))
 
     # Tabla sea_zones
@@ -823,18 +862,18 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
             lat, lon, pixel_x, pixel_y, adjacent_seas, adjacent_provinces
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """, (
-            s["id"],
-            s["name"],
-            s["featurecla"],
-            s["color_rgb"][0],
-            s["color_rgb"][1],
-            s["color_rgb"][2],
-            s["centroid"]["lat"],
-            s["centroid"]["lon"],
-            s["centroid"]["pixel_x"],
-            s["centroid"]["pixel_y"],
-            json.dumps(s["adjacent_seas"]),
-            json.dumps(s["adjacent_provinces"])
+            int(s["id"]),
+            str(s["name"]),
+            str(s["type"]),
+            int(s["color_rgb"]["r"] if isinstance(s["color_rgb"], dict) else s["color_rgb"][0]),
+            int(s["color_rgb"]["g"] if isinstance(s["color_rgb"], dict) else s["color_rgb"][1]),
+            int(s["color_rgb"]["b"] if isinstance(s["color_rgb"], dict) else s["color_rgb"][2]),
+            float(s["center"]["lat"]),
+            float(s["center"]["lon"]),
+            int(s["center"]["pixel_x"]),
+            int(s["center"]["pixel_y"]),
+            json.dumps(s["adjacent_seas"], cls=NpEncoder),
+            json.dumps(s["adjacent_provinces"], cls=NpEncoder)
         ))
 
     # Tabla strategic_straits
