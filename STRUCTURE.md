@@ -1,6 +1,6 @@
 # 📁 Estructura del Proyecto (Architecture & Folder Tree)
 
-Detalle de la jerarquía de directorios, módulos y componentes del juego y su mini motor.
+Detalle de la jerarquía de directorios, módulos y componentes del juego, su mini motor nativo y el pipeline cartográfico.
 
 ---
 
@@ -9,18 +9,32 @@ Detalle de la jerarquía de directorios, módulos y componentes del juego y su m
 ```text
 ├── .github/                           # Automatización y CI/CD
 │   └── workflows/
+│       ├── generate-world-map.yml     # Flujo manual de generación de mapas mundiales y GIS
 │       ├── build-debug-apk.yml        # Flujo manual de compilación de APK Debug
-│       └── override-commit-message.yml # Flujo de reescritura de commits
-├── .gitignore                         # Reglas de exclusión para Git (Java, C++, Rust, Lua)
+│       └── override-commit-message.yml # Flujo de reescritura de commits en español
+├── .gitignore                         # Reglas de exclusión para Git (Java, C++, Rust, Lua, GIS Cache)
 ├── commit_message.txt                 # Mensaje canónico de commit en español
 ├── README.md                          # Visión general y guía rápida
 ├── ROADMAP.md                         # Fases y hoja de ruta de desarrollo
 ├── STRUCTURE.md                       # Estructura de archivos y módulos
 ├── AI_CONTEXT.md                      # Contexto técnico para asistentes de IA
-├── AGENTS.md                          # Instrucciones y reglas para agentes
+├── AGENTS.md                          # Instrucciones y reglas obligatorias para agentes
 ├── gradlew                            # Script de Gradle Wrapper
 ├── build.gradle.kts                   # Configuración Gradle raíz del proyecto
 ├── settings.gradle.kts                # Configuración de repositorios y módulos
+│
+├── scripts/                           # Herramientas y Pipelines de Datos
+│   ├── generate_world_map.py          # Generador de mapas mundiales, provincias, fronteras y JSON
+│   └── requirements.txt               # Dependencias GIS (geopandas, shapely, matplotlib, pillow)
+│
+├── map_data/                          # Salida de la Generación Cartográfica (artefactos)
+│   ├── world_map_data.json            # Dataset maestro con países, provincias y adyacencias
+│   ├── world_provinces_blank.png      # Mapa táctico con delimitación de fronteras
+│   ├── world_provinces_political.png  # Mapa coloreado por soberanía nacional
+│   ├── world_provinces_ids.png        # Mapa de IDs por canal RGB exacto (tiempo O(1))
+│   ├── world_provinces.geojson        # Capa vectorial estándar de provincias (editable en QGIS/web)
+│   ├── world_countries.geojson        # Capa vectorial estándar de países (editable en QGIS/web)
+│   └── README_MAP.md                  # Documentación de uso y edición del mapa
 │
 └── app/
     ├── .gitignore                     # Exclusiones específicas del módulo app
@@ -31,9 +45,14 @@ Detalle de la jerarquía de directorios, módulos y componentes del juego y su m
         └── main/
             ├── AndroidManifest.xml    # Manifiesto de Android (orientación landscape y permisos)
             │
-            ├── assets/                # Recursos de mapa de alta resolución
-            │   ├── blank_province_map.png      # Mapa original en blanco (5632x2048)
-            │   └── political_province_map.png  # Mapa rasterizado con división política
+            ├── assets/                # Recursos y mapas del juego
+            │   ├── world_map/         # Directorio sincronizado de mapas generados
+            │   │   ├── world_map_data.json
+            │   │   ├── world_provinces_blank.png
+            │   │   ├── world_provinces_ids.png
+            │   │   └── world_provinces_political.png
+            │   ├── blank_province_map.png      # Mapa base regional (5632x2048)
+            │   └── political_province_map.png  # Mapa rasterizado regional
             │
             ├── cpp/                   # Mini Motor Nativo en C++20 y Lua
             │   ├── CMakeLists.txt     # Script de compilación CMake (compila C++, Lua y enlaza Rust)
@@ -52,43 +71,35 @@ Detalle de la jerarquía de directorios, módulos y componentes del juego y su m
             │   ├── MainActivity.kt    # Actividad principal en Compose
             │   │
             │   ├── data/              # Modelos de datos del juego
-            │   │   ├── LatamCountries.kt  # Definiciones de 13 países de Latinoamérica
-            │   │   ├── ProvinceData.kt    # Geometría normalizada de provincias
-            │   │   └── GameModels.kt      # Estados de partida, ejércitos y recursos
+            │   │   ├── model/GameState.kt
+            │   │   └── repository/GameDataRepository.kt
             │   │
             │   ├── engine/            # Integración nativa con Kotlin
             │   │   └── NativeEngineBridge.kt # Interfaz JNI para C++, Rust y Lua
             │   │
             │   ├── ui/                # Capa visual (Jetpack Compose)
-            │   │   ├── screens/
-            │   │   │   ├── CountrySelectionScreen.kt # Pantalla de selección de nación
-            │   │   │   └── GameScreen.kt             # Pantalla principal de juego
-            │   │   ├── map/
-            │   │   │   └── StrategyMapCanvas.kt      # Canvas interactivo del mapa táctico
-            │   │   ├── components/
-            │   │   │   ├── TopHudBar.kt              # Barra de recursos y fecha
-            │   │   │   ├── BottomCommandPanel.kt     # Panel de órdenes y reclutamiento
-            │   │   │   └── FullMapViewerDialog.kt    # Diálogo para examinar el mapa completo
-            │   │   └── theme/
-            │   │       ├── Color.kt                  # Paleta táctica y colores patrios
-            │   │       ├── Theme.kt                  # Tema Material Design 3
-            │   │       └── Type.kt                   # Tipografía militar y estratégica
+            │   │   ├── screens/       # MainGameScreen.kt
+            │   │   ├── map/           # StrategyMapCanvas.kt
+            │   │   ├── components/    # Diálogos tácticos, HUD y controles
+            │   │   └── theme/         # Temas, tipografía y colores
             │   │
             │   └── viewmodel/
-            │       └── GameViewModel.kt              # Estado reactivo y lógica de juego
+            │       └── GameViewModel.kt # Estado reactivo y simulación
             │
-            └── res/                   # Recursos visuales de Android
-                ├── values/
-                │   ├── strings.xml    # Cadenas de texto
-                │   └── colors.xml     # Colores del sistema
-                └── mipmap-*/          # Iconos adaptativos de la aplicación
+            └── res/                   # Recursos visuales de Android (strings, drawables, mipmaps)
 ```
 
 ---
 
-## ⚙️ Flujo de Compilación y Enlace Nativo
+## ⚙️ Flujos Principales del Repositorio
 
-1. **Paso 1 (Rust):** Antes de iniciar `preBuild`, Gradle ejecuta `build_rust.sh`, que usa el compilador Clang del NDK para generar las librerías estáticas `libstrategy_core.a` para `arm64-v8a` y `x86_64`.
-2. **Paso 2 (CMake & C++):** CMake compila todos los archivos fuente de **Lua 5.4.6 en bruto** junto con `strategy_engine.cpp`.
-3. **Paso 3 (Enlace JNI):** CMake enlaza `libstrategy_core.a`, el runtime de Lua y las librerías de Android (`log`, `m`) en un único binario compartido: `libnative-strategy-engine.so`.
-4. **Paso 4 (Kotlin):** `NativeEngineBridge` carga la librería en tiempo de ejecución y expone los métodos nativos a los ViewModels y pantallas de Jetpack Compose.
+1. **Flujo Cartográfico (GitHub Actions `generate-world-map.yml`):**
+   - Ejecutado manualmente cuando se requiera actualizar o reescalar el mapa mundial.
+   - Procesa datos cartográficos con Python (`scripts/generate_world_map.py`).
+   - Genera imágenes de alta resolución, archivos GeoJSON editables y el archivo `world_map_data.json` con la topología de fronteras.
+   - Exporta los archivos exclusivamente como artefacto descargable (ZIP), asegurando que el repositorio de Git permanezca limpio sin archivos binarios generados.
+
+2. **Flujo de Compilación Android (Gradle & NDK):**
+   - **Rust:** Tarea `buildRustCore` compila `libstrategy_core.a` para `arm64-v8a` y `x86_64`.
+   - **C++ y Lua:** CMake compila `strategy_engine.cpp` y el código fuente original de Lua 5.4.
+   - **Enlace:** Produce `libnative-strategy-engine.so` listo para ser cargado por JNI desde Kotlin.

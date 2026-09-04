@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+if [ -f "$HOME/.cargo/env" ]; then
+    . "$HOME/.cargo/env"
+fi
+export PATH="$HOME/.cargo/bin:$PATH"
+
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Resolve NDK LLVM toolchain path dynamically

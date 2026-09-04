@@ -1,20 +1,13 @@
-feat: implementacion de gran estrategia latinoamerica y mini motor nativo (C++20, Rust, Lua 5.4)
+feat(map-pipeline): Implementar flujo automatizado de generación de mapas mundiales y datos GIS con GitHub Actions
 
-- Interfaz & Jugabilidad:
-  * Sistema de seleccion de 13 naciones soberanas de Latinoamerica con estadisticas, capitales y colores patrios.
-  * Mapa provincial politico con delimitacion de fronteras tacticas y visor de mapa completo en alta resolucion.
-  * Renderizado de etiquetas de tropas y provincias fijadas en coordenadas de pantalla (screen-space) para evitar distorsion con el zoom.
-  * Centrado automatico de camara en la capital de la nacion seleccionada y controles tactiles fluidos (pinch-to-zoom y pan).
-
-- Mini Motor Nativo Multi-Lenguaje:
-  * Orquestador nativo en C++20 y puente JNI (NativeEngineBridge) comunicando Kotlin con C++, Rust y Lua.
-  * Nucleo de simulacion en Rust (strategy_core) con compilacion cruzada para arquitecturas Android arm64-v8a y x86_64 para calculos matematicos de combate e IA sin Garbage Collector.
-  * Ingestion del codigo fuente oficial de Lua 5.4.6 en ANSI C puro (sin wrappers externos) compilado directamente con CMake para eventos y modding.
-  * Tarea automatizada buildRustCore en Gradle vinculada al ciclo preBuild.
-
-- Automatizacion CI/CD (GitHub Actions):
-  * Workflow build-debug-apk.yml para compilacion manual de APK Debug sin cache con generacion de firma de depuracion en el runner.
-  * Workflow override-commit-message.yml para sincronizacion automatica de mensajes de commit mediante commit_message.txt.
-
-- Documentacion y Gobernanza:
-  * Creacion de README.md, ROADMAP.md, STRUCTURE.md, AI_CONTEXT.md, AGENTS.md y configuracion de reglas en .gitignore para codigo basura de C++, Rust y Lua.
+- Flujo de GitHub Actions con activación manual (`.github/workflows/generate-world-map.yml`) configurable en resolución y escala de detalle (10m, 50m, 110m).
+- Script de procesamiento geoespacial (`scripts/generate_world_map.py`) utilizando dependencias reales de la industria (`geopandas`, `shapely`, `matplotlib`, `pillow`).
+- Descarga automatizada de geometrías de dominio público de Natural Earth para todos los países del mundo y sus provincias/estados (`Admin 0` y `Admin 1`).
+- Generación del dataset maestro estructurado `world_map_data.json` con metadatos de países, provincias, coordenadas centroides (lat/lon y píxeles) y cálculo topológico de fronteras/vecinos adyacentes.
+- Renderizado de mapas de alta resolución:
+  * `world_provinces_blank.png`: mapa táctico base con delimitación de fronteras provinciales e internacionales destacadas.
+  * `world_provinces_political.png`: mapa con paleta política por naciones soberanas.
+  * `world_provinces_ids.png`: mapa indexado por canal RGB exacto para detección táctil instantánea en tiempo O(1) sin sobrecarga de CPU.
+- Exportación de capas vectoriales estándar `world_provinces.geojson` y `world_countries.geojson` modificables en QGIS o geojson.io para futuras ediciones de fronteras.
+- Empaquetado automático exclusivamente como artefacto descargable (retención 90 días), garantizando que las imágenes generadas y archivos de mapa nunca se commiteen al repositorio de Git ni ensucien el árbol de fuentes.
+- Actualización integral de la documentación técnica del proyecto (`README.md`, `ROADMAP.md`, `STRUCTURE.md`, `AI_CONTEXT.md`).

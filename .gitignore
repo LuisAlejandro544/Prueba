@@ -53,3 +53,8 @@ luac.out
 *.out
 lua_dump/
 *.lua.cache
+
+# Map Generation Outputs & Cache (Only exported via Artifacts, never committed)
+map_data/
+*.shp.zip
+app/src/main/assets/world_map/

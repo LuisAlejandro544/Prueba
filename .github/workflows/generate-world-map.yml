@@ -1,0 +1,75 @@
+name: Generate World Map
+
+on:
+  workflow_dispatch:
+    inputs:
+      scale_detail:
+        description: 'Nivel de detalle geográfico (10m = Ultra detallado, 50m = Equilibrado recomendado, 110m = Rápido)'
+        required: true
+        default: '50m'
+        type: choice
+        options:
+          - '10m'
+          - '50m'
+          - '110m'
+      image_width:
+        description: 'Ancho de la imagen del mapa en píxeles'
+        required: true
+        default: '4096'
+        type: string
+      image_height:
+        description: 'Alto de la imagen del mapa en píxeles'
+        required: true
+        default: '2048'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-world-map:
+    name: Generar Mapa Mundial Detallado (GIS + JSON + PNG)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout del código del proyecto
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 2. Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'scripts/requirements.txt'
+
+      - name: 3. Instalar librerías de procesamiento geoespacial
+        run: |
+          echo "=== Instalando paquetes GIS y generación de imágenes ==="
+          python -m pip install --upgrade pip
+          pip install -r scripts/requirements.txt
+
+      - name: 4. Ejecutar generador de mapa mundial
+        run: |
+          echo "=== Iniciando generación con escala ${{ inputs.scale_detail }} y resolución ${{ inputs.image_width }}x${{ inputs.image_height }} ==="
+          python scripts/generate_world_map.py \
+            --scale "${{ inputs.scale_detail }}" \
+            --width "${{ inputs.image_width }}" \
+            --height "${{ inputs.image_height }}" \
+            --output-dir "map_data"
+
+      - name: 5. Subir paquete completo de mapas como artefacto descargable (Sin subir al repo)
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-map-package-${{ inputs.scale_detail }}-${{ inputs.image_width }}x${{ inputs.image_height }}
+          path: |
+            map_data/world_provinces_blank.png
+            map_data/world_provinces_political.png
+            map_data/world_provinces_ids.png
+            map_data/world_map_data.json
+            map_data/world_provinces.geojson
+            map_data/world_countries.geojson
+            map_data/README_MAP.md
+          if-no-files-found: error
+          retention-days: 90

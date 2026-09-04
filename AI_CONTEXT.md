@@ -7,20 +7,19 @@ Este archivo proporciona contexto técnico para cualquier modelo de Inteligencia
 ## 🎯 Resumen del Proyecto
 
 - **Género:** Gran Estrategia Geopolítica en Tiempo Real (RTS) para Android.
-- **Escenario Actual:** Latinoamérica (13 naciones jugables: México, Colombia, Argentina, Brasil, Perú, Chile, Venezuela, Bolivia, Ecuador, Paraguay, Uruguay, Centroamérica y el Caribe).
-- **Inspiración:** Profundidad territorial y táctica de *Age of History* y los juegos de gran estrategia clásica.
+- **Escenario Actual:** Latinoamérica con expansión global a todos los países del mundo.
+- **Inspiración:** Profundidad territorial y táctica de los grandes juegos de estrategia histórica clásica.
 - **Orientación:** Fija en modo horizontal (*Landscape*).
 
 ---
 
-## 🏗️ Arquitectura Híbrida
+## 🏗️ Arquitectura del Sistema
 
-El juego no depende exclusivamente de la máquina virtual de Java/Android. Se divide deliberadamente en cuatro capas:
+El juego divide sus responsabilidades en cinco componentes especializados:
 
 1. **Capa Visual & UX (Kotlin + Jetpack Compose):**
    - Maneja el ciclo de vida de las vistas, gestos táctiles (*pinch-to-zoom*, *pan*, *tap*), y el renderizado del Canvas.
    - **Regla de Oro de Renderizado:** Las etiquetas de ejércitos y los nombres de provincias se deben dibujar en **espacio de pantalla (*screen-space*)**, nunca sujetos a la matriz de transformación del zoom, para evitar que aumenten desproporcionadamente de tamaño y tapen el mapa.
-   - El sistema de coordenadas del mapa es normalizado de `(0.0, 0.0)` a `(1.0, 1.0)` relativo a las dimensiones originales del mapa de provincias (5632 x 2048).
 
 2. **Capa Intermedia & JNI (C++20):**
    - Archivos: `app/src/main/cpp/strategy_engine.cpp` y `CMakeLists.txt`.
@@ -35,6 +34,13 @@ El juego no depende exclusivamente de la máquina virtual de Java/Android. Se di
    - Se utiliza **Lua original en bruto (ANSI C)**, sin envoltorios (*wrappers*) externos.
    - Diseñado para ejecutar scripts de eventos diplomáticos, misiones históricas y futuros mods creados por la comunidad.
 
+5. **Pipeline de Cartografía Global & Datos GIS (Python + GitHub Actions):**
+   - Archivos: `.github/workflows/generate-world-map.yml` y `scripts/generate_world_map.py`.
+   - Genera mapas con todos los países del mundo y sus provincias reales con fuentes abiertas de Natural Earth (`Admin 0` y `Admin 1`).
+   - Produce `world_map_data.json` con países, provincias, coordenadas centroides y lista de vecinos adyacentes (fronteras).
+   - Genera el mapa indexado por píxel (`world_provinces_ids.png`) para detección de toques en tiempo `O(1)`: cada provincia tiene un color RGB único `(r, g, b)` tal que `id = R + (G * 256) + (B * 65536)`.
+   - Exporta capas vectoriales `world_provinces.geojson` y `world_countries.geojson` para posibilitar modificaciones manuales futuras en QGIS o geojson.io.
+
 ---
 
 ## 📱 Perfil del Usuario y Restricciones Técnicas
@@ -43,15 +49,12 @@ El juego no depende exclusivamente de la máquina virtual de Java/Android. Se di
 - **Canal de Distribución:** El APK se distribuye en tiendas alternativas como **Uptodown** o descarga directa de APK.
 - **Compilación Nativa Obligatoria:** Cuando se integre código en C++, Rust o Lua, las herramientas de Gradle **deben compilar las librerías nativas reales**. Está estrictamente prohibido simular o sustituir librerías nativas con código alternativo simulado (*fallback mock*) cuando el usuario solicita una tecnología específica.
 - **Propiedad Intelectual:** No utilizar nombres de marcas protegidas por derechos de autor que puedan poner en riesgo al usuario.
+- **Uso de Dependencias Reales:** Se prefieren herramientas y librerías completas y funcionales por sobre soluciones improvisadas sin dependencias. El peso final del APK no es una restricción limitante.
 
 ---
 
-## 🛠️ Herramientas de Compilación Utilizadas
+## 🛠️ Herramientas y Automatización (GitHub Actions)
 
-- **Android NDK:** Versión `26.1.10909125` con Clang 17.
-- **CMake:** Versión `3.22.1`.
-- **Rust Toolchain:** Compilador `rustc` y `cargo` con targets `aarch64-linux-android` (dispositivos físicos) y `x86_64-linux-android` (emuladores).
-- **Compilación Automatizada:** Tarea `buildRustCore` en `app/build.gradle.kts` vinculada a `preBuild`.
-- **Integración Continua:**
-  - `.github/workflows/build-debug-apk.yml`: Compilación manual sin caché para APK Debug con generación de firma local en el runner.
-  - `.github/workflows/override-commit-message.yml`: Sincronización automática de mensajes de commit leyendo `commit_message.txt`.
+- **`generate-world-map.yml`:** Flujo manual (`workflow_dispatch`) que procesa datos GIS con Python, genera los mapas en PNG de alta resolución y el JSON con todas las fronteras, exportándolos exclusivamente como artefacto descargable (ZIP) sin tocar ni commitear en el árbol de fuentes del repositorio.
+- **`build-debug-apk.yml`:** Flujo manual (`workflow_dispatch`) para compilar el APK Debug completo con NDK 26, CMake y Rust, generando la firma en el runner y exportando el APK listo para instalar.
+- **`override-commit-message.yml`:** Sincronización automática de mensajes de commit en español leyendo el archivo canónico `commit_message.txt`.

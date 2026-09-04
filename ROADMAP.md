@@ -1,6 +1,6 @@
 # 🗺️ Hoja de Ruta de Desarrollo (Roadmap)
 
-Plan de evolución estratégica y técnica para el juego y su mini motor nativo.
+Plan de evolución estratégica y técnica para el juego, su mini motor nativo y el ecosistema cartográfico.
 
 ---
 
@@ -26,9 +26,24 @@ Plan de evolución estratégica y técnica para el juego y su mini motor nativo.
 
 ---
 
-### ⏳ Fase 3: Sistema Militar y Movimiento Táctico (Próxima)
-- [ ] Selección interactiva de regimientos en el mapa provincial.
-- [ ] Trazado de rutas de movimiento de tropas entre provincias vecinas.
+### ✅ Fase 3: Pipeline Automatizado de Cartografía Mundial y Datos GIS (Completada)
+- [x] Creación del script generador de mapas geoespaciales (`scripts/generate_world_map.py`) con librerías estándar GIS (`geopandas`, `shapely`, `matplotlib`, `pillow`).
+- [x] Extracción y procesamiento de todas las provincias (`Admin 1`) y países soberanos (`Admin 0`) de la base de datos abierta Natural Earth.
+- [x] Generación del dataset maestro estructurado `world_map_data.json` con catálogo de países, provincias, coordenadas centroides (lat/lon y píxeles) y cálculo de fronteras adyacentes.
+- [x] Renderizado automático de tres modalidades de mapa en alta resolución:
+  - Mapa táctico con delimitación de fronteras provinciales e internacionales destacadas (`world_provinces_blank.png`).
+  - Mapa político con tonos patrios armonizados (`world_provinces_political.png`).
+  - Mapa indexado por canal RGB (`world_provinces_ids.png`) para selección táctil instantánea O(1) sin sobrecargar el procesador móvil.
+- [x] Exportación de capas vectoriales abiertas `world_provinces.geojson` y `world_countries.geojson` editables en software GIS (QGIS) o herramientas web (geojson.io).
+- [x] Flujo de GitHub Actions con activación manual (`generate-world-map.yml`) configurable por escala (10m, 50m, 110m) y dimensiones de imagen, empaquetando los archivos exclusivamente como artefacto descargable (ZIP) sin subirlos al repositorio.
+
+---
+
+### ⏳ Fase 4: Integración del Mapa Mundial en el Motor y Movimiento Táctico (Próxima)
+- [ ] Carga del archivo `world_map_data.json` en el repositorio de datos de la aplicación.
+- [ ] Detección táctil por píxel en Compose utilizando el mapa indexado de IDs.
+- [ ] Selección interactiva de provincias y regimientos militares en el mapa.
+- [ ] Trazado de rutas de movimiento de tropas entre provincias vecinas utilizando la lista de adyacencias calculada.
 - [ ] Implementación de pathfinding A* nativo en Rust para cálculo instantáneo de rutas.
 - [ ] Sistema de combate y asedio ejecutado mediante `rust_strategy_core_calculate_combat`:
   - Modificadores de terreno (montaña, selva, llanura).
@@ -36,7 +51,7 @@ Plan de evolución estratégica y técnica para el juego y su mini motor nativo.
 
 ---
 
-### ⏳ Fase 4: Economía y Desarrollo de Provincias
+### ⏳ Fase 5: Economía y Desarrollo de Provincias
 - [ ] Generación de oro, puntos de diplomacia y mano de obra (*manpower*) por provincia.
 - [ ] Menú de reclutamiento de infantería, caballería y artillería.
 - [ ] Construcción de edificios tácticos:
@@ -46,7 +61,7 @@ Plan de evolución estratégica y técnica para el juego y su mini motor nativo.
 
 ---
 
-### ⏳ Fase 5: Diplomacia, IA y Eventos en Lua
+### ⏳ Fase 6: Diplomacia, IA y Eventos en Lua
 - [ ] Acciones diplomáticas completas:
   - Declarar guerra y firmar tratados de paz con cesión de territorios.
   - Pactos de no agresión y alianzas militares.
@@ -58,7 +73,7 @@ Plan de evolución estratégica y técnica para el juego y su mini motor nativo.
 
 ---
 
-### ⏳ Fase 6: Interfaz Definitiva y Optimización APK
-- [ ] Panel de estadísticas globales y clasificación de potencias de Latinoamérica.
+### ⏳ Fase 7: Interfaz Definitiva y Distribución APK
+- [ ] Panel de estadísticas globales y clasificación de potencias mundiales.
 - [ ] Efectos de sonido tácticos (marcha de ejércitos, clarines de guerra y campanas de paz).
-- [ ] Optimización de tamaño y rendimiento del APK para distribución en tiendas de terceros (Uptodown, descarga directa).
+- [ ] Optimización de rendimiento para distribución en tiendas de terceros (Uptodown, descarga directa).

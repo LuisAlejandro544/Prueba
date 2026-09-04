@@ -77,7 +77,7 @@ android {
 
 val buildRustCore = tasks.register<Exec>("buildRustCore") {
   workingDir = file("src/main/rust")
-  commandLine("./build_rust.sh")
+  commandLine("bash", "build_rust.sh")
 }
 
 tasks.named("preBuild") {
