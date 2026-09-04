@@ -1,0 +1,76 @@
+name: Build Debug APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    name: Compilar APK Debug (C++, Rust, Lua)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout del código del proyecto
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 2. Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: 3. Configurar Android SDK, NDK 26 y CMake 3.22
+        run: |
+          echo "=== Aceptando licencias y configurando herramientas nativas ==="
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;26.1.10909125" "cmake;3.22.1"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/26.1.10909125" >> $GITHUB_ENV
+
+      - name: 4. Instalar Rust y configurar arquitecturas Android
+        run: |
+          echo "=== Configurando Rust y targets de Android ==="
+          rustup default stable
+          rustup target add aarch64-linux-android x86_64-linux-android
+          rustc --version
+          cargo --version
+
+      - name: 5. Generar firma de depuración (Keystore Debug)
+        run: |
+          echo "=== Generando debug.keystore localmente en el runner ==="
+          keytool -genkey -v -keystore debug.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+          ls -la debug.keystore
+
+      - name: 6. Preparar entorno y permisos de ejecución
+        run: |
+          if [ -f ".env.example" ] && [ ! -f ".env" ]; then
+            cp .env.example .env
+          else
+            touch .env
+          fi
+          chmod +x gradlew
+          chmod +x app/src/main/rust/build_rust.sh
+
+      - name: 7. Compilar APK Debug sin caché
+        run: |
+          echo "=== Compilando APK Debug con C++, Rust y Lua puro ==="
+          ./gradlew assembleDebug --no-build-cache --no-daemon --stacktrace
+
+      - name: 8. Subir APK Debug generado como artefacto descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30

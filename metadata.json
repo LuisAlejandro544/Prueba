@@ -1,0 +1,6 @@
+{
+  "name": "Estrategia Histórica",
+  "description": "Juego de gran estrategia en tiempo real donde puedes liderar cualquier país de Latinoamérica.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,20 @@
+feat: implementacion de gran estrategia latinoamerica y mini motor nativo (C++20, Rust, Lua 5.4)
+
+- Interfaz & Jugabilidad:
+  * Sistema de seleccion de 13 naciones soberanas de Latinoamerica con estadisticas, capitales y colores patrios.
+  * Mapa provincial politico con delimitacion de fronteras tacticas y visor de mapa completo en alta resolucion.
+  * Renderizado de etiquetas de tropas y provincias fijadas en coordenadas de pantalla (screen-space) para evitar distorsion con el zoom.
+  * Centrado automatico de camara en la capital de la nacion seleccionada y controles tactiles fluidos (pinch-to-zoom y pan).
+
+- Mini Motor Nativo Multi-Lenguaje:
+  * Orquestador nativo en C++20 y puente JNI (NativeEngineBridge) comunicando Kotlin con C++, Rust y Lua.
+  * Nucleo de simulacion en Rust (strategy_core) con compilacion cruzada para arquitecturas Android arm64-v8a y x86_64 para calculos matematicos de combate e IA sin Garbage Collector.
+  * Ingestion del codigo fuente oficial de Lua 5.4.6 en ANSI C puro (sin wrappers externos) compilado directamente con CMake para eventos y modding.
+  * Tarea automatizada buildRustCore en Gradle vinculada al ciclo preBuild.
+
+- Automatizacion CI/CD (GitHub Actions):
+  * Workflow build-debug-apk.yml para compilacion manual de APK Debug sin cache con generacion de firma de depuracion en el runner.
+  * Workflow override-commit-message.yml para sincronizacion automatica de mensajes de commit mediante commit_message.txt.
+
+- Documentacion y Gobernanza:
+  * Creacion de README.md, ROADMAP.md, STRUCTURE.md, AI_CONTEXT.md, AGENTS.md y configuracion de reglas en .gitignore para codigo basura de C++, Rust y Lua.
