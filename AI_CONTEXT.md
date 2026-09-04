@@ -36,8 +36,8 @@ El juego divide sus responsabilidades en cinco componentes especializados:
 
 5. **Pipeline de Cartografía Global & Datos GIS (Python + GitHub Actions):**
    - Archivos: `.github/workflows/generate-world-map.yml` y `scripts/generate_world_map.py`.
-   - Genera mapas con todos los países del mundo y sus provincias reales con fuentes abiertas de Natural Earth (`Admin 0` y `Admin 1`).
-   - Produce `world_map.db` (SQLite relacional indexado) con esquema SQL compacto. Permite que asistentes de IA consulten y modifiquen datos geopolíticos y económicos con sentencias SQL sin saturar la ventana de contexto (evitando tener que leer millones de caracteres).
+   - Genera mapas con el 100% de los países del mundo y sus provincias reales con fuentes abiertas de Natural Earth (`Admin 0` y `Admin 1`), incorporando un mecanismo de respaldo territorial (*fallback*) que convierte la geometría soberana en provincia nacional para aquellas naciones sin subdivisiones en Admin 1.
+   - Produce `world_map.db` (SQLite relacional indexado con integridad referencial) con esquema SQL compacto. Permite que asistentes de IA consulten y modifiquen datos geopolíticos y económicos con sentencias SQL sin saturar la ventana de contexto (evitando tener que leer millones de caracteres).
    - Produce `world_map_data.json` con países, provincias, zonas marítimas, estrechos, puertos, tipos de terreno y fronteras.
    - Genera el mapa indexado por píxel (`world_provinces_ids.png`) para detección de toques en tiempo `O(1)`: cada provincia y zona marítima tiene un color RGB único `(r, g, b)` tal que `id = R + (G * 256) + (B * 65536)`.
    - Exporta capas vectoriales `world_provinces.geojson`, `world_countries.geojson` y `world_sea_zones.geojson` para posibilitar modificaciones manuales futuras en QGIS o geojson.io.

@@ -1,5 +1,6 @@
-fix(map-generator): Corregir error de serialización int64 en JSON y SQLite
+fix(map-generator): Garantizar cobertura del 100% de países del mundo en SQLite y mapas
 
-- Implementación de la clase NpEncoder heredada de json.JSONEncoder y función recursiva sanitize_for_json para convertir de forma estricta los tipos NumPy (int64, float64, ndarray) a tipos primitivos de Python.
-- Conversión explícita a tipos nativos (int, float, str) en los cálculos de adyacencias topológicas de provincias terrestres (neighbors) y zonas marítimas adyacentes (adjacent_seas).
-- Corrección de la estructura de inserción en SQLite (world_map.db) para las tablas 'provinces' y 'sea_zones', garantizando compatibilidad total con Android y consultas directas sin saturar la ventana de contexto de modelos de IA.
+- Implementación de mecanismo de respaldo territorial (fallback): los países sin subdivisiones en Admin 1 (Natural Earth) ahora generan automáticamente una provincia nacional basada en su geometría soberana de Admin 0.
+- Normalización canónica de códigos ISO y diccionario de entidades geopolíticas sin ISO estándar (Francia, Noruega, Somalilandia, Kosovo, Sahara Occidental, microestados y territorios insulares), resolviendo desajustes entre capas de países y provincias.
+- Habilitación de integridad referencial estricta (PRAGMA foreign_keys = ON) en SQLite (world_map.db), asegurando que toda provincia pertenezca a un país existente y que ningún país quede con lista vacía de territorios.
+- Cobertura global completa en mapas ráster: world_provinces_ids.png (detección O(1)), world_provinces_political.png y capas vectoriales GeoJSON para todas las naciones del planeta.

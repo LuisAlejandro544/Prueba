@@ -14,6 +14,7 @@ Script de Generación Automatizada de Mapas Mundiales para Juegos de Gran Estrat
 
 import os
 import sys
+import re
 import json
 import math
 import sqlite3
@@ -24,6 +25,7 @@ from typing import Dict, List, Any, Tuple, Optional
 
 import requests
 import numpy as np
+import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Polygon, MultiPolygon, Point, box
 from shapely.affinity import scale as shp_scale
@@ -283,27 +285,97 @@ def lat_lon_to_pixel(lat: float, lon: float, width: int, height: int, min_lat: f
     return (x, y)
 
 
-def normalize_iso(raw_iso: Any, admin_name: str, fallback_prefix: str = "UNK") -> str:
-    """Normaliza y rescata códigos ISO para evitar valores nulos, '-99' o fallas en Brasil/otras regiones."""
+# Diccionario canónico exhaustivo de normalización geopolítica para entidades sin código ISO estándar en Natural Earth
+CANONICAL_COUNTRY_MAP: Dict[str, str] = {
+    "brazil": "BRA",
+    "brasil": "BRA",
+    "france": "FRA",
+    "francia": "FRA",
+    "norway": "NOR",
+    "noruega": "NOR",
+    "united states of america": "USA",
+    "united states": "USA",
+    "estados unidos": "USA",
+    "somalia": "SOM",
+    "somaliland": "SOM",
+    "kosovo": "XKX",
+    "northern cyprus": "CYN",
+    "cyprus": "CYP",
+    "chipre": "CYP",
+    "western sahara": "ESH",
+    "sahara occidental": "ESH",
+    "south sudan": "SSD",
+    "sudan del sur": "SSD",
+    "taiwan": "TWN",
+    "palestine": "PSE",
+    "palestina": "PSE",
+    "west bank": "PSE",
+    "gaza": "PSE",
+    "vatican": "VAT",
+    "holy see": "VAT",
+    "san marino": "SMR",
+    "monaco": "MCO",
+    "liechtenstein": "LIE",
+    "andorra": "AND",
+    "malta": "MLT",
+    "singapore": "SGP",
+    "bahrain": "BHR",
+    "luxembourg": "LUX",
+    "luxemburgo": "LUX",
+    "timor-leste": "TLS",
+    "east timor": "TLS",
+    "hong kong": "HKG",
+    "macao": "MAC",
+    "macau": "MAC",
+    "puerto rico": "PRI",
+    "greenland": "GRL",
+    "groenlandia": "GRL",
+    "falkland islands": "FLK",
+    "islas malvinas": "FLK",
+    "french guiana": "GUF",
+    "guayana francesa": "GUF",
+    "new caledonia": "NCL",
+    "nueva caledonia": "NCL",
+    "guam": "GUM",
+    "united kingdom": "GBR",
+    "reino unido": "GBR",
+    "democratic republic of the congo": "COD",
+    "dem. rep. congo": "COD",
+    "republic of the congo": "COG",
+    "congo": "COG",
+    "central african republic": "CAF",
+    "republica centroafricana": "CAF",
+    "ivory coast": "CIV",
+    "cote d'ivoire": "CIV",
+    "eswatini": "SWZ",
+    "swaziland": "SWZ",
+    "north macedonia": "MKD",
+    "macedonia": "MKD",
+    "bosnia and herzegovina": "BIH",
+    "czech republic": "CZE",
+    "czechia": "CZE",
+    "dominican republic": "DOM",
+    "republica dominicana": "DOM",
+    "myanmar": "MMR",
+}
+
+
+def normalize_iso(raw_iso: Any, admin_name: str, fallback_prefix: str = "CTY") -> str:
+    """Normaliza y rescata códigos ISO para evitar valores nulos, '-99' o fallas entre capas."""
     iso = str(raw_iso).strip().upper() if raw_iso is not None else ""
-    if not iso or iso in ("-99", "NONE", "NAN", "NULL", "UNK"):
-        name_clean = str(admin_name).strip().lower()
-        if "brazil" in name_clean or "brasil" in name_clean:
-            return "BRA"
-        if "france" in name_clean or "francia" in name_clean:
-            return "FRA"
-        if "norway" in name_clean or "noruega" in name_clean:
-            return "NOR"
-        if "united states" in name_clean or "estados unidos" in name_clean:
-            return "USA"
-        if "somalia" in name_clean or "somaliland" in name_clean:
-            return "SOM"
-        if "kosovo" in name_clean:
-            return "XKX"
-        if "cyprus" in name_clean:
-            return "CYP"
-        return f"{fallback_prefix}_{abs(hash(name_clean)) % 10000}"
-    return iso
+    if iso and iso not in ("-99", "NONE", "NAN", "NULL", "UNK", ""):
+        return iso
+
+    name_clean = str(admin_name).strip().lower()
+    for pattern, code in CANONICAL_COUNTRY_MAP.items():
+        if pattern in name_clean:
+            return code
+
+    # Si no está en el diccionario, generar un código alfanumérico determinista
+    alpha_only = re.sub(r'[^A-Z]', '', name_clean.upper())
+    if len(alpha_only) >= 3:
+        return f"{fallback_prefix}_{alpha_only[:4]}"
+    return f"{fallback_prefix}_{abs(hash(name_clean)) % 10000}"
 
 
 def enhance_small_islands(geometry, min_area: float = 0.08, scale_factor: float = 2.4):
@@ -467,12 +539,24 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     # 6. Estructurar Países y Diccionario
     countries_dict: Dict[str, Any] = {}
     country_color_map: Dict[str, str] = {}
+    country_name_to_id: Dict[str, str] = {}
+    country_id_to_geom: Dict[str, Any] = {}
 
     for idx, row in gdf_countries.iterrows():
         name = str(row.get('NAME', row.get('ADMIN', f'País {idx}'))).strip()
-        iso_a3 = normalize_iso(row.get('ISO_A3'), name, fallback_prefix=f"CTY_{idx}")
-        if iso_a3.startswith("CTY_") and row.get('ADM0_A3'):
-            iso_a3 = normalize_iso(row.get('ADM0_A3'), name, fallback_prefix=f"CTY_{idx}")
+
+        # Jerarquía exhaustiva para obtener el código ISO de 3 letras real
+        iso_val = row.get('ISO_A3')
+        if not iso_val or str(iso_val).strip() in ("-99", "NONE", "NAN", "NULL", "UNK", ""):
+            iso_val = row.get('ISO_A3_EH')
+        if not iso_val or str(iso_val).strip() in ("-99", "NONE", "NAN", "NULL", "UNK", ""):
+            iso_val = row.get('ADM0_A3')
+        if not iso_val or str(iso_val).strip() in ("-99", "NONE", "NAN", "NULL", "UNK", ""):
+            iso_val = row.get('GU_A3')
+        if not iso_val or str(iso_val).strip() in ("-99", "NONE", "NAN", "NULL", "UNK", ""):
+            iso_val = row.get('SOV_A3')
+
+        iso_a3 = normalize_iso(iso_val, name, fallback_prefix="CTY")
 
         if iso_a3 in HISTORICAL_COUNTRY_COLORS:
             country_color = HISTORICAL_COUNTRY_COLORS[iso_a3]
@@ -481,6 +565,15 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
             country_color = COUNTRY_PALETTE[color_idx]
 
         country_color_map[iso_a3] = country_color
+        country_name_to_id[name.lower()] = iso_a3
+
+        # Indexar variantes de nombre para emparejamiento exacto con Admin 1
+        for col_name in ['ADMIN', 'NAME_LONG', 'FORMAL_EN', 'SOVEREIGNT']:
+            val = str(row.get(col_name, '')).strip().lower()
+            if val and val not in ("none", "nan", "-99", "null"):
+                country_name_to_id[val] = iso_a3
+
+        country_id_to_geom[iso_a3] = row.geometry
 
         countries_dict[iso_a3] = {
             "id": iso_a3,
@@ -551,7 +644,52 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
         sea_zones_list[i]["adjacent_seas"] = sorted(sea_neighbors)
 
     # 9. Procesar Provincias Terrestres y Conexión Costa-Mar
-    print("[Procesando] Normalizando provincias terrestres, acceso al mar y datos socio-económicos...")
+    print("[Procesando] Verificando cobertura global y normalizando provincias terrestres...")
+
+    # Mapeo previo para detectar qué países de countries_dict ya tienen provincias en gdf_provinces
+    assigned_countries = set()
+    for _, prov_row in gdf_provinces.iterrows():
+        p_raw_iso = prov_row.get('adm0_a3', prov_row.get('iso_a2', ''))
+        p_admin = str(prov_row.get('admin', prov_row.get('adm0_name', ''))).strip()
+        p_iso = normalize_iso(p_raw_iso, p_admin)
+        if p_iso in countries_dict:
+            assigned_countries.add(p_iso)
+        elif p_admin.lower() in country_name_to_id:
+            assigned_countries.add(country_name_to_id[p_admin.lower()])
+        else:
+            for c_name_key, c_id_val in country_name_to_id.items():
+                if c_name_key in p_admin.lower() or p_admin.lower() in c_name_key:
+                    assigned_countries.add(c_id_val)
+                    break
+
+    # Países huérfanos: están en countries_dict pero carecen de subdivisiones en Admin 1
+    missing_countries = [c_id for c_id in countries_dict if c_id not in assigned_countries]
+    print(f"[Cobertura] Países totales en Admin 0: {len(countries_dict)}")
+    print(f"[Cobertura] Países con provincias en Admin 1: {len(assigned_countries)}")
+    print(f"[Cobertura] Países que requieren provincia nacional de respaldo: {len(missing_countries)}")
+
+    if missing_countries:
+        fallback_rows = []
+        for c_id in missing_countries:
+            c_info = countries_dict[c_id]
+            geom = country_id_to_geom.get(c_id)
+            if geom is not None and not geom.is_empty:
+                fallback_rows.append({
+                    'name': f"{c_info['name']}",
+                    'name_en': f"{c_info['name']}",
+                    'admin': c_info['name'],
+                    'adm0_name': c_info['name'],
+                    'adm0_a3': c_id,
+                    'iso_a2': c_info.get('iso_a2', ''),
+                    'type': 'Territorio Nacional',
+                    'type_en': 'National Territory',
+                    'geometry': geom
+                })
+        if fallback_rows:
+            fallback_gdf = gpd.GeoDataFrame(fallback_rows, crs=gdf_provinces.crs)
+            gdf_provinces = pd.concat([gdf_provinces, fallback_gdf], ignore_index=True)
+            print(f"[Cobertura] Incorporadas {len(fallback_rows)} provincias nacionales para alcanzar el 100% de cobertura mundial.")
+
     provinces_list: List[Dict[str, Any]] = []
     gdf_provinces = gdf_provinces.reset_index(drop=True)
     prov_political_colors = []
@@ -567,8 +705,10 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
         raw_iso = row.get('adm0_a3', row.get('iso_a2', ''))
         country_iso = normalize_iso(raw_iso, admin_name)
 
-        if country_iso in country_color_map:
-            color_p = country_color_map[country_iso]
+        if country_iso in countries_dict:
+            pass
+        elif admin_name.lower() in country_name_to_id:
+            country_iso = country_name_to_id[admin_name.lower()]
         else:
             matched_iso = None
             for c_id, c_data in countries_dict.items():
@@ -577,11 +717,24 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
                     break
             if matched_iso:
                 country_iso = matched_iso
-                color_p = country_color_map.get(country_iso, "#64748b")
             else:
-                color_p = HISTORICAL_COUNTRY_COLORS.get(country_iso, COUNTRY_PALETTE[abs(hash(country_iso)) % len(COUNTRY_PALETTE)])
-                country_color_map[country_iso] = color_p
+                if country_iso not in countries_dict:
+                    color_fallback = HISTORICAL_COUNTRY_COLORS.get(country_iso, COUNTRY_PALETTE[abs(hash(country_iso)) % len(COUNTRY_PALETTE)])
+                    countries_dict[country_iso] = {
+                        "id": country_iso,
+                        "name": admin_name if admin_name else f"País {country_iso}",
+                        "iso_a2": "",
+                        "iso_a3": country_iso,
+                        "continent": "Desconocido",
+                        "subregion": "Desconocido",
+                        "color_hex": color_fallback,
+                        "provinces": [],
+                        "major_ports": [],
+                        "capital": None
+                    }
+                    country_color_map[country_iso] = color_fallback
 
+        color_p = countries_dict[country_iso]["color_hex"]
         prov_political_colors.append(color_p)
 
         r, g, b = id_to_rgb(prov_id)
@@ -735,6 +888,7 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
+    cur.execute("PRAGMA foreign_keys = ON;")
     cur.execute("PRAGMA synchronous = OFF;")
     cur.execute("PRAGMA journal_mode = MEMORY;")
 
