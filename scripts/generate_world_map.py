@@ -29,6 +29,15 @@ import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Polygon, MultiPolygon, Point, box
 from shapely.affinity import scale as shp_scale
+from shapely.ops import unary_union
+try:
+    from shapely.validation import make_valid
+except ImportError:
+    try:
+        from shapely import make_valid
+    except ImportError:
+        def make_valid(geom):
+            return geom.buffer(0)
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -262,6 +271,15 @@ def get_shapefile_path(cache_dir: Path, scale: str, dataset_name: str, category:
     return shp_files[0]
 
 
+def try_get_shapefile_path(cache_dir: Path, scale: str, dataset_name: str, category: str = "cultural") -> Optional[Path]:
+    """Intenta descargar y extraer un shapefile opcional de Natural Earth. Retorna None si no está disponible."""
+    try:
+        return get_shapefile_path(cache_dir, scale, dataset_name, category)
+    except Exception as e:
+        print(f"[Dataset Opcional] '{dataset_name}' no se pudo cargar a escala {scale}: {e}")
+        return None
+
+
 def id_to_rgb(numeric_id: int) -> Tuple[int, int, int]:
     """Convierte un ID numérico en un color RGB único para muestreo exacto en el mapa."""
     r = numeric_id % 256
@@ -378,62 +396,117 @@ def normalize_iso(raw_iso: Any, admin_name: str, fallback_prefix: str = "CTY") -
     return f"{fallback_prefix}_{abs(hash(name_clean)) % 10000}"
 
 
+def safe_clean_geometry(geom):
+    """
+    Sanea, repara y valida geometrías sin descartar provincias o islas por leves
+    inconsistencias topológicas de Shapely.
+    """
+    if geom is None or geom.is_empty:
+        return None
+    try:
+        if not geom.is_valid:
+            geom = make_valid(geom)
+    except Exception:
+        try:
+            geom = geom.buffer(0)
+        except Exception:
+            pass
+    if geom is None or geom.is_empty:
+        return None
+    if geom.geom_type in ('Polygon', 'MultiPolygon'):
+        return geom
+    elif geom.geom_type == 'GeometryCollection':
+        polys = [g for g in geom.geoms if g.geom_type in ('Polygon', 'MultiPolygon') and not g.is_empty]
+        if polys:
+            try:
+                return unary_union(polys)
+            except Exception:
+                return MultiPolygon(polys) if len(polys) > 1 else polys[0]
+    return None
+
+
 def enhance_small_islands(geometry, min_area: float = 0.08, scale_factor: float = 2.4):
     """
     Realza geométricamente islas pequeñas e importantes para que no desaparezcan
-    en pantallas de teléfonos móviles ni queden como píxeles invisibles, manteniendo su forma y posición realista.
+    en pantallas de teléfonos móviles ni queden como píxeles invisibles.
+    Garantiza que la provincia nunca se invalide ni se pierda.
     """
     if geometry is None or geometry.is_empty:
         return geometry
 
-    if geometry.geom_type == 'Polygon':
-        if geometry.area < min_area:
-            return shp_scale(geometry, xfact=scale_factor, yfact=scale_factor, origin='centroid')
+    try:
+        if geometry.geom_type == 'Polygon':
+            if geometry.area < min_area:
+                scaled = shp_scale(geometry, xfact=scale_factor, yfact=scale_factor, origin='centroid')
+                return safe_clean_geometry(scaled) or geometry
+            return geometry
+        elif geometry.geom_type == 'MultiPolygon':
+            new_polys = []
+            for poly in geometry.geoms:
+                if poly.is_empty:
+                    continue
+                if poly.area < min_area:
+                    scaled = shp_scale(poly, xfact=scale_factor, yfact=scale_factor, origin='centroid')
+                    clean_s = safe_clean_geometry(scaled)
+                    if clean_s is not None and not clean_s.is_empty:
+                        new_polys.append(clean_s)
+                    else:
+                        new_polys.append(poly)
+                else:
+                    new_polys.append(poly)
+            if not new_polys:
+                return geometry
+            try:
+                union_geom = unary_union(new_polys)
+                return safe_clean_geometry(union_geom) or geometry
+            except Exception:
+                return MultiPolygon(new_polys)
+    except Exception:
         return geometry
-    elif geometry.geom_type == 'MultiPolygon':
-        new_polys = []
-        for poly in geometry.geoms:
-            if poly.area < min_area:
-                new_polys.append(shp_scale(poly, xfact=scale_factor, yfact=scale_factor, origin='centroid'))
-            else:
-                new_polys.append(poly)
-        return MultiPolygon(new_polys)
     return geometry
 
 
-def estimate_province_attributes(name: str, country_iso: str, lat: float, lon: float, is_coastal: bool) -> Dict[str, Any]:
+def estimate_province_attributes(name: str, country_iso: str, lat: float, lon: float, is_coastal: bool, physical_terrain: Optional[str] = None, measured_population: Optional[int] = None) -> Dict[str, Any]:
     """
     Estima atributos históricos, demográficos y de terreno realistas y listos para modificar en mods.
+    Si se dispone de terreno físico determinado por intersección espacial o población medida, se priorizan.
     """
-    # 1. Terreno basado en geografía real
-    name_l = name.lower()
-    if any(k in name_l for k in ["mountain", "andes", "cordillera", "alps", "alpes", "sierra", "tibet", "himalaya", "caucasus"]):
-        terrain = "mountains"
-    elif (-55 <= lat <= 15 and -75 <= lon <= -65) or (35 <= lat <= 50 and 6 <= lon <= 15) or (25 <= lat <= 40 and 70 <= lon <= 100):
-        terrain = "mountains"
-    elif (-10 <= lat <= 5 and -75 <= lon <= -50) or (-5 <= lat <= 5 and 10 <= lon <= 30) or (-10 <= lat <= 10 and 95 <= lon <= 140):
-        terrain = "jungle"
-    elif (15 <= lat <= 35 and -15 <= lon <= 55) or (-30 <= lat <= -20 and 15 <= lon <= 30) or (-30 <= lat <= -20 and 120 <= lon <= 140):
-        terrain = "desert"
-    elif lat > 60:
-        terrain = "tundra"
-    elif any(k in name_l for k in ["hills", "colinas", "morro", "highland"]):
-        terrain = "hills"
+    # 1. Terreno basado en regiones físicas reales si está disponible, o en geografía histórica
+    if physical_terrain:
+        terrain = physical_terrain
     else:
-        terrain = "plains" if not is_coastal else "coastal_plains"
+        name_l = name.lower()
+        if any(k in name_l for k in ["mountain", "andes", "cordillera", "alps", "alpes", "sierra", "tibet", "himalaya", "caucasus"]):
+            terrain = "mountains"
+        elif (-55 <= lat <= 15 and -75 <= lon <= -65) or (35 <= lat <= 50 and 6 <= lon <= 15) or (25 <= lat <= 40 and 70 <= lon <= 100):
+            terrain = "mountains"
+        elif (-10 <= lat <= 5 and -75 <= lon <= -50) or (-5 <= lat <= 5 and 10 <= lon <= 30) or (-10 <= lat <= 10 and 95 <= lon <= 140):
+            terrain = "jungle"
+        elif (15 <= lat <= 35 and -15 <= lon <= 55) or (-30 <= lat <= -20 and 15 <= lon <= 30) or (-30 <= lat <= -20 and 120 <= lon <= 140):
+            terrain = "desert"
+        elif lat > 60:
+            terrain = "tundra"
+        elif any(k in name_l for k in ["hills", "colinas", "morro", "highland"]):
+            terrain = "hills"
+        else:
+            terrain = "plains" if not is_coastal else "coastal_plains"
 
     # 2. Demografía y Mano de obra estimada (Manpower)
-    base_population = 250000 + (abs(hash(name)) % 1500000)
-    if country_iso in ["CHN", "IND"]:
-        base_population *= 4
-    elif country_iso in ["USA", "RUS", "BRA", "DEU", "JPN"]:
-        base_population *= 2
-    elif terrain in ["desert", "tundra", "mountains"]:
-        base_population = max(30000, base_population // 4)
+    if measured_population and measured_population > 0:
+        base_population = measured_population
+    else:
+        base_population = 250000 + (abs(hash(name)) % 1500000)
+        if country_iso in ["CHN", "IND"]:
+            base_population *= 4
+        elif country_iso in ["USA", "RUS", "BRA", "DEU", "JPN"]:
+            base_population *= 2
+        elif terrain in ["desert", "tundra", "mountains"]:
+            base_population = max(30000, base_population // 4)
 
     manpower = int(base_population * 0.12)
 
     # 3. Recursos históricos
+    name_l = name.lower()
     if any(k in name_l for k in ["texas", "alaska", "maracaibo", "zulia", "baku", "khuzestan", "al-ahsa", "siberia", "kuwait"]):
         resource = "oil"
         resource_amount = 80
@@ -496,6 +569,51 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     print(f"[Datos] Cargando zonas marítimas y océanos desde: {marine_shp.name}")
     gdf_seas = gpd.read_file(marine_shp).to_crs(epsg=4326)
 
+    # --- Datasets Adicionales de Enriquecimiento Cartográfico Profundo ---
+    # 3.1 Polígono continuo del Océano Global
+    ocean_shp = try_get_shapefile_path(cache_dir, scale, "ocean", category="physical")
+    gdf_ocean = gpd.read_file(ocean_shp).to_crs(epsg=4326) if ocean_shp else None
+    if gdf_ocean is not None:
+        print(f"[Datos Adicionales] Océano global cargado: {len(gdf_ocean)} geometrías")
+
+    # 3.2 Lagos Interiores Mundiales (Grandes Lagos, Baikal, Caspio, Victoria, etc.)
+    lakes_shp = try_get_shapefile_path(cache_dir, scale, "lakes", category="physical")
+    gdf_lakes = gpd.read_file(lakes_shp).to_crs(epsg=4326) if lakes_shp else None
+    if gdf_lakes is not None:
+        print(f"[Datos Adicionales] Lagos mundiales cargados: {len(gdf_lakes)} masas lacustres")
+
+    # 3.3 Red Hidrográfica de Ríos Navegables y Estratégicos
+    rivers_shp = try_get_shapefile_path(cache_dir, scale, "rivers_lake_centerlines", category="physical")
+    gdf_rivers = gpd.read_file(rivers_shp).to_crs(epsg=4326) if rivers_shp else None
+    if gdf_rivers is not None:
+        print(f"[Datos Adicionales] Red fluvial cargada: {len(gdf_rivers)} tramos de ríos")
+
+    # 3.4 Ciudades y Asentamientos Urbanos (Populated Places con demografía real)
+    places_shp = try_get_shapefile_path(cache_dir, scale, "populated_places", category="cultural")
+    gdf_places = gpd.read_file(places_shp).to_crs(epsg=4326) if places_shp else None
+    if gdf_places is not None:
+        print(f"[Datos Adicionales] Ciudades y núcleos urbanos cargados: {len(gdf_places)} urbes")
+
+    # 3.5 Puertos Marítimos Reales de Natural Earth
+    ports_shp = try_get_shapefile_path(cache_dir, scale, "ports", category="cultural")
+    gdf_ports = gpd.read_file(ports_shp).to_crs(epsg=4326) if ports_shp else None
+    if gdf_ports is not None:
+        print(f"[Datos Adicionales] Puertos marítimos oficiales cargados: {len(gdf_ports)} puertos")
+
+    # 3.6 Líneas Oficiales de Frontera Terrestre Internacional
+    admin0_lines_shp = try_get_shapefile_path(cache_dir, scale, "admin_0_boundary_lines_land", category="cultural")
+    gdf_admin0_lines = gpd.read_file(admin0_lines_shp).to_crs(epsg=4326) if admin0_lines_shp else None
+
+    # 3.7 Líneas Oficiales de Límites Provinciales/Estatales
+    admin1_lines_shp = try_get_shapefile_path(cache_dir, scale, "admin_1_states_provinces_lines", category="cultural")
+    gdf_admin1_lines = gpd.read_file(admin1_lines_shp).to_crs(epsg=4326) if admin1_lines_shp else None
+
+    # 3.8 Regiones y Accidentes Físicos (Desiertos, Selvas, Cordilleras, Altiplanos)
+    regions_shp = try_get_shapefile_path(cache_dir, scale, "geography_regions_polys", category="physical")
+    gdf_regions = gpd.read_file(regions_shp).to_crs(epsg=4326) if regions_shp else None
+    if gdf_regions is not None:
+        print(f"[Datos Adicionales] Regiones físicas mundiales cargadas: {len(gdf_regions)} zonas")
+
     # 4. Filtrar Antártida y acotar coordenadas de juego
     if exclude_antarctica:
         print("[Geometría] Excluyendo Antártida y acotando latitudes (-60°S a 84°N)...")
@@ -517,6 +635,31 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
         gdf_provinces = gdf_provinces.clip(bounding_box)
         gdf_countries = gdf_countries.clip(bounding_box)
         gdf_seas = gdf_seas.clip(bounding_box)
+        if gdf_ocean is not None:
+            try:
+                gdf_ocean = gdf_ocean.clip(bounding_box)
+            except Exception:
+                pass
+        if gdf_lakes is not None:
+            try:
+                gdf_lakes = gdf_lakes.clip(bounding_box)
+            except Exception:
+                pass
+        if gdf_rivers is not None:
+            try:
+                gdf_rivers = gdf_rivers.clip(bounding_box)
+            except Exception:
+                pass
+        if gdf_places is not None:
+            try:
+                gdf_places = gdf_places.cx[:, min_lat:max_lat]
+            except Exception:
+                pass
+        if gdf_regions is not None:
+            try:
+                gdf_regions = gdf_regions.clip(bounding_box)
+            except Exception:
+                pass
     else:
         min_lat, max_lat = -90.0, 90.0
 
@@ -524,10 +667,23 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     print("[Geometría] Optimizando geometría de islas pequeñas para visibilidad táctica en móvil...")
     gdf_provinces['geometry'] = gdf_provinces['geometry'].apply(enhance_small_islands)
 
-    # Limpiar geometrías nulas
-    gdf_provinces = gdf_provinces[gdf_provinces.geometry.notnull() & ~gdf_provinces.geometry.is_empty & gdf_provinces.geometry.is_valid].copy()
-    gdf_countries = gdf_countries[gdf_countries.geometry.notnull() & ~gdf_countries.geometry.is_empty & gdf_countries.geometry.is_valid].copy()
-    gdf_seas = gdf_seas[gdf_seas.geometry.notnull() & ~gdf_seas.geometry.is_empty & gdf_seas.geometry.is_valid].copy()
+    # Saneamiento topológico sin descarte de provincias válidas (previene huecos en EE.UU., Canadá o Rusia)
+    print("[Geometría] Saneando topología de capas para evitar pérdida de entidades territoriales...")
+    gdf_provinces['geometry'] = gdf_provinces['geometry'].apply(safe_clean_geometry)
+    gdf_countries['geometry'] = gdf_countries['geometry'].apply(safe_clean_geometry)
+    gdf_seas['geometry'] = gdf_seas['geometry'].apply(safe_clean_geometry)
+
+    gdf_provinces = gdf_provinces[gdf_provinces.geometry.notnull() & ~gdf_provinces.geometry.is_empty].copy()
+    gdf_countries = gdf_countries[gdf_countries.geometry.notnull() & ~gdf_countries.geometry.is_empty].copy()
+    gdf_seas = gdf_seas[gdf_seas.geometry.notnull() & ~gdf_seas.geometry.is_empty].copy()
+
+    if gdf_lakes is not None:
+        gdf_lakes['geometry'] = gdf_lakes['geometry'].apply(safe_clean_geometry)
+        gdf_lakes = gdf_lakes[gdf_lakes.geometry.notnull() & ~gdf_lakes.geometry.is_empty].copy()
+
+    if gdf_ocean is not None:
+        gdf_ocean['geometry'] = gdf_ocean['geometry'].apply(safe_clean_geometry)
+        gdf_ocean = gdf_ocean[gdf_ocean.geometry.notnull() & ~gdf_ocean.geometry.is_empty].copy()
 
     total_provinces = len(gdf_provinces)
     total_countries = len(gdf_countries)
@@ -695,6 +851,12 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     prov_political_colors = []
     prov_id_colors = []
 
+    # Índices espaciales de capas complementarias para enriquecimiento en O(log N)
+    regions_sindex = gdf_regions.sindex if gdf_regions is not None else None
+    places_sindex = gdf_places.sindex if gdf_places is not None else None
+    lakes_sindex = gdf_lakes.sindex if gdf_lakes is not None else None
+    rivers_sindex = gdf_rivers.sindex if gdf_rivers is not None else None
+
     for idx, row in gdf_provinces.iterrows():
         prov_id = idx + 1
         prov_name = str(row.get('name', row.get('name_en', f'Provincia {prov_id}'))).strip()
@@ -755,8 +917,72 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
                 adjacent_seas.append(int(10001 + s_idx))
         is_coastal = len(adjacent_seas) > 0
 
+        # Enriquecimiento físico mediante intersección con regiones geográficas reales
+        physical_terrain = None
+        if regions_sindex is not None:
+            r_cand = list(regions_sindex.intersection(geom.bounds))
+            for rc in r_cand:
+                rc_geom = gdf_regions.geometry.iloc[rc]
+                if geom.intersects(rc_geom):
+                    rc_row = gdf_regions.iloc[rc]
+                    r_type = str(rc_row.get('featurecla', rc_row.get('type', ''))).lower()
+                    r_name = str(rc_row.get('name', '')).lower()
+                    if any(w in r_type or w in r_name for w in ['desert', 'erg', 'dune', 'sahara', 'gobi', 'atacama', 'kalahari']):
+                        physical_terrain = 'desert'
+                        break
+                    elif any(w in r_type or w in r_name for w in ['mountain', 'range', 'cordillera', 'sierra', 'alps', 'himalaya', 'andes']):
+                        physical_terrain = 'mountains'
+                        break
+                    elif any(w in r_type or w in r_name for w in ['tundra', 'ice', 'glacier']):
+                        physical_terrain = 'tundra'
+                        break
+                    elif any(w in r_type or w in r_name for w in ['forest', 'jungle', 'rainforest', 'amazon', 'congo']):
+                        physical_terrain = 'jungle'
+                        break
+
+        # Enriquecimiento demográfico y urbano con ciudades reales de Natural Earth
+        prov_cities = []
+        measured_pop = 0
+        if places_sindex is not None:
+            p_cand = list(places_sindex.intersection(geom.bounds))
+            for pc in p_cand:
+                p_geom = gdf_places.geometry.iloc[pc]
+                if geom.contains(p_geom) or geom.intersects(p_geom):
+                    p_row = gdf_places.iloc[pc]
+                    c_name = str(p_row.get('NAME', p_row.get('name', ''))).strip()
+                    c_pop = int(p_row.get('POP_MAX', p_row.get('pop_max', 0))) if pd.notnull(p_row.get('POP_MAX', p_row.get('pop_max', 0))) else 0
+                    c_cap = int(p_row.get('FEATURECLA', '') == 'Admin-0 capital') or int(p_row.get('adm0cap', 0) == 1)
+                    if c_name:
+                        prov_cities.append({
+                            "name": c_name,
+                            "population": c_pop,
+                            "is_capital": bool(c_cap)
+                        })
+                        measured_pop += c_pop
+
+        # Detectar presencia de lagos interiores o ríos mayores
+        has_major_lake = False
+        if lakes_sindex is not None:
+            lk_cand = list(lakes_sindex.intersection(geom.bounds))
+            for lk in lk_cand:
+                if geom.touches(gdf_lakes.geometry.iloc[lk]) or geom.intersects(gdf_lakes.geometry.iloc[lk]):
+                    has_major_lake = True
+                    break
+
+        has_major_river = False
+        if rivers_sindex is not None:
+            rv_cand = list(rivers_sindex.intersection(geom.bounds))
+            for rv in rv_cand:
+                if geom.intersects(gdf_rivers.geometry.iloc[rv]):
+                    has_major_river = True
+                    break
+
         # Atributos económicos, demográficos y de terreno
-        attributes = estimate_province_attributes(prov_name, country_iso, lat, lon, is_coastal)
+        attributes = estimate_province_attributes(
+            prov_name, country_iso, lat, lon, is_coastal,
+            physical_terrain=physical_terrain,
+            measured_population=measured_pop if measured_pop > 0 else None
+        )
 
         # Verificar si es capital nacional
         is_capital = False
@@ -789,6 +1015,10 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
             "resource_amount": attributes["resource_amount"],
             "industrial_level": attributes["industrial_level"],
             "is_capital": is_capital,
+            "has_major_lake": has_major_lake,
+            "has_major_river": has_major_river,
+            "cities_count": len(prov_cities),
+            "cities": prov_cities[:5],
             "neighbors": []
         }
 
@@ -830,6 +1060,30 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
         if c_id in countries_dict:
             countries_dict[c_id]["major_ports"].append(port["name"])
 
+    # Incorporar puertos adicionales del dataset oficial de Natural Earth si está presente
+    if gdf_ports is not None and not gdf_ports.empty:
+        existing_port_names = {p["name"].lower() for p in ports_mapped}
+        for _, port_row in gdf_ports.iterrows():
+            pt_name = str(port_row.get('name', port_row.get('NAME', ''))).strip()
+            if pt_name and pt_name.lower() not in existing_port_names:
+                pt_geom = port_row.geometry
+                if pt_geom and pt_geom.geom_type == 'Point':
+                    pt_lat, pt_lon = float(pt_geom.y), float(pt_geom.x)
+                    if min_lat <= pt_lat <= max_lat:
+                        px, py = lat_lon_to_pixel(pt_lat, pt_lon, width, height, min_lat, max_lat)
+                        pt_country = str(port_row.get('adm0name', port_row.get('country', ''))).strip()
+                        c_iso = normalize_iso('', pt_country)
+                        ports_mapped.append({
+                            "name": pt_name,
+                            "lat": round(pt_lat, 4),
+                            "lon": round(pt_lon, 4),
+                            "country": c_iso if c_iso in countries_dict else "",
+                            "sea": str(port_row.get('featurecla', 'Coastal Port')),
+                            "pixel_x": px,
+                            "pixel_y": py
+                        })
+                        existing_port_names.add(pt_name.lower())
+
     straits_mapped = []
     for strait in STRATEGIC_STRAITS:
         px, py = lat_lon_to_pixel(strait["lat"], strait["lon"], width, height, min_lat, max_lat)
@@ -838,6 +1092,54 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
             "pixel_x": px,
             "pixel_y": py
         })
+
+    # Estructurar datos de Lagos Mundiales
+    lakes_data_list = []
+    if gdf_lakes is not None and not gdf_lakes.empty:
+        for lk_i, lk_row in gdf_lakes.iterrows():
+            lk_name = str(lk_row.get('name', lk_row.get('NAME', f"Lago {lk_i+1}"))).strip()
+            lk_geom = lk_row.geometry
+            if lk_geom and not lk_geom.is_empty:
+                lk_cent = lk_geom.centroid
+                lakes_data_list.append({
+                    "id": lk_i + 1,
+                    "name": lk_name,
+                    "lat": round(float(lk_cent.y), 4),
+                    "lon": round(float(lk_cent.x), 4),
+                    "featurecla": str(lk_row.get('featurecla', 'Lake'))
+                })
+
+    # Estructurar datos de Ríos Principales
+    rivers_data_list = []
+    if gdf_rivers is not None and not gdf_rivers.empty:
+        for rv_i, rv_row in gdf_rivers.iterrows():
+            rv_name = str(rv_row.get('name', rv_row.get('NAME', f"Río {rv_i+1}"))).strip()
+            rivers_data_list.append({
+                "id": rv_i + 1,
+                "name": rv_name,
+                "featurecla": str(rv_row.get('featurecla', 'River'))
+            })
+
+    # Estructurar datos de Asentamientos Urbanos y Ciudades
+    places_data_list = []
+    if gdf_places is not None and not gdf_places.empty:
+        for pl_i, pl_row in gdf_places.iterrows():
+            pl_name = str(pl_row.get('NAME', pl_row.get('name', ''))).strip()
+            pl_geom = pl_row.geometry
+            if pl_name and pl_geom and pl_geom.geom_type == 'Point':
+                pl_lat, pl_lon = float(pl_geom.y), float(pl_geom.x)
+                if min_lat <= pl_lat <= max_lat:
+                    px, py = lat_lon_to_pixel(pl_lat, pl_lon, width, height, min_lat, max_lat)
+                    places_data_list.append({
+                        "id": pl_i + 1,
+                        "name": pl_name,
+                        "lat": round(pl_lat, 4),
+                        "lon": round(pl_lon, 4),
+                        "pixel_x": px,
+                        "pixel_y": py,
+                        "population": int(pl_row.get('POP_MAX', 0)) if pd.notnull(pl_row.get('POP_MAX', 0)) else 0,
+                        "is_capital": int(pl_row.get('FEATURECLA', '') == 'Admin-0 capital') or int(pl_row.get('adm0cap', 0) == 1)
+                    })
 
     # 12. Guardar capas vectoriales GeoJSON
     print("[Exportación] Guardando capas vectoriales GeoJSON editables...")
@@ -849,7 +1151,7 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     print("[Exportación] Guardando dataset maestro en world_map_data.json...")
     full_dataset = {
         "metadata": {
-            "version": "2.0",
+            "version": "2.1",
             "projection": "Equirectangular Cortada (Optimizado Móvil)",
             "bounds": {
                 "min_lon": -180.0,
@@ -864,13 +1166,19 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
             "total_sea_zones": len(sea_zones_list),
             "total_strategic_straits": len(straits_mapped),
             "total_major_ports": len(ports_mapped),
+            "total_lakes": len(lakes_data_list),
+            "total_rivers": len(rivers_data_list),
+            "total_populated_places": len(places_data_list),
             "ocean_color_id_base": 10001
         },
         "countries": countries_dict,
         "provinces": provinces_list,
         "sea_zones": sea_zones_list,
         "strategic_straits": straits_mapped,
-        "major_ports": ports_mapped
+        "major_ports": ports_mapped,
+        "lakes": lakes_data_list[:200],
+        "rivers": rivers_data_list[:200],
+        "populated_places": places_data_list[:500]
     }
     # Sanitizar explícitamente cualquier tipo NumPy para garantizar 100% serialización JSON nativa
     full_dataset = sanitize_for_json(full_dataset)
@@ -1397,6 +1705,49 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
             mp["pixel_x"], mp["pixel_y"], mp.get("sea", "")
         ))
 
+    # Tablas SQLite para datasets geográficos y urbanos adicionales
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS lakes (
+        id INTEGER PRIMARY KEY,
+        name TEXT,
+        featurecla TEXT,
+        lat REAL,
+        lon REAL
+    );
+    """)
+    for lk in lakes_data_list:
+        cur.execute("INSERT INTO lakes (id, name, featurecla, lat, lon) VALUES (?, ?, ?, ?, ?);",
+                    (lk["id"], lk["name"], lk["featurecla"], lk["lat"], lk["lon"]))
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS rivers (
+        id INTEGER PRIMARY KEY,
+        name TEXT,
+        featurecla TEXT
+    );
+    """)
+    for rv in rivers_data_list:
+        cur.execute("INSERT INTO rivers (id, name, featurecla) VALUES (?, ?, ?);",
+                    (rv["id"], rv["name"], rv["featurecla"]))
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS populated_places (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        lat REAL,
+        lon REAL,
+        pixel_x INTEGER,
+        pixel_y INTEGER,
+        population INTEGER,
+        is_capital INTEGER
+    );
+    """)
+    for pl in places_data_list:
+        cur.execute("""
+        INSERT INTO populated_places (id, name, lat, lon, pixel_x, pixel_y, population, is_capital)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+        """, (pl["id"], pl["name"], pl["lat"], pl["lon"], pl["pixel_x"], pl["pixel_y"], pl["population"], pl["is_capital"]))
+
     cur.execute("CREATE INDEX idx_provinces_country ON provinces(country_id);")
     cur.execute("CREATE INDEX idx_provinces_terrain ON provinces(terrain);")
     cur.execute("CREATE INDEX idx_provinces_coastal ON provinces(is_coastal);")
@@ -1421,19 +1772,31 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     # 0. Capa base oceánica total (garantiza que ninguna masa de agua o hueco entre polígonos quede negro)
     ocean_extent = box(-180.0, min_lat, 180.0, max_lat)
     gpd.GeoSeries([ocean_extent], crs=gdf_seas.crs).plot(ax=ax, color='#0369a1', zorder=1)
+    if gdf_ocean is not None and not gdf_ocean.empty:
+        gdf_ocean.plot(ax=ax, color='#0284c7', edgecolor='none', zorder=1)
 
     # 1. Zonas Marítimas con cuadrícula e iluminación oceánica azul brillante
     gdf_seas.plot(ax=ax, color=sea_colors_political, edgecolor='#38bdf8', linewidth=0.35, alpha=0.95, zorder=2)
-    # 2. Provincias terrestres con paleta política corregida
+
+    # 2. Lagos mundiales en azul lacustre (rellena Grandes Lagos y cuerpos lacustres)
+    if gdf_lakes is not None and not gdf_lakes.empty:
+        gdf_lakes.plot(ax=ax, color='#0284c7', edgecolor='#38bdf8', linewidth=0.3, zorder=2)
+
+    # 3. Provincias terrestres con paleta política corregida
     gdf_provinces.plot(ax=ax, color=prov_political_colors, edgecolor='#1f2937', linewidth=0.22, zorder=3)
-    # 3. Fronteras soberanas de alto contraste
+
+    # 4. Ríos navegables y estratégicos
+    if gdf_rivers is not None and not gdf_rivers.empty:
+        gdf_rivers.plot(ax=ax, color='#38bdf8', linewidth=0.35, alpha=0.75, zorder=3)
+
+    # 5. Fronteras soberanas de alto contraste
     gdf_countries.boundary.plot(ax=ax, edgecolor='#ffffff', linewidth=0.9, alpha=0.98, zorder=4)
 
-    # 4. Dibujar Canales y Estrechos Estratégicos (Rombos Dorados)
+    # 6. Dibujar Canales y Estrechos Estratégicos (Rombos Dorados)
     for st in straits_mapped:
         ax.plot(st["lon"], st["lat"], marker='D', color='#fbbf24', markersize=3.8, markeredgecolor='#000000', markeredgewidth=0.6, zorder=6)
 
-    # 5. Dibujar Puertos Principales (Círculos Cian)
+    # 7. Dibujar Puertos Principales (Círculos Cian)
     for pt in ports_mapped:
         ax.plot(pt["lon"], pt["lat"], marker='o', color='#38bdf8', markersize=3.0, markeredgecolor='#0f172a', markeredgewidth=0.5, zorder=5)
 
@@ -1446,25 +1809,55 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     plt.close()
     print(" -> Guardado: world_provinces_political.png")
 
-    # B) Mapa Táctico en Blanco (Lienzo para Mods y Modos de Mapa)
-    print("[Renderizado 2/3] Generando world_provinces_blank.png...")
+    # B) Mapa Táctico en Blanco (Lienzo para Mods con Mar Náutico Distinguible y Lagos Rellenos)
+    print("[Renderizado 2/3] Generando world_provinces_blank.png con mar náutico claro...")
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-    fig.patch.set_facecolor('#131d2e')
-    ax.set_facecolor('#131d2e')
 
-    # Mares con tono oscuro náutico
-    gdf_seas.plot(ax=ax, facecolor='#162235', edgecolor='#1e2d42', linewidth=0.35)
-    # Provincias monocromáticas
-    gdf_provinces.plot(ax=ax, facecolor='#2d3748', edgecolor='#4a5568', linewidth=0.25)
-    # Fronteras soberanas blancas
-    gdf_countries.boundary.plot(ax=ax, edgecolor='#f8fafc', linewidth=0.85, alpha=0.95)
+    # Paleta táctica náutica de alto contraste
+    tactical_ocean_bg = '#132b47'      # Azul marino táctico legible
+    tactical_sea_zone = '#1a3d68'      # Zonas marítimas navegables en azul marino medio
+    tactical_sea_grid = '#38bdf8'      # Cuadrícula naval en cian suave
+    tactical_land_fill = '#2d3748'     # Tierra táctica en gris pizarra neutro
+    tactical_prov_edge = '#4a5568'     # Bordes de provincia
+    tactical_nation_edge = '#ffffff'   # Fronteras internacionales en blanco puro
+
+    fig.patch.set_facecolor(tactical_ocean_bg)
+    ax.set_facecolor(tactical_ocean_bg)
+
+    # 0. Capa base oceánica total continua (garantiza que el mar siempre tenga color náutico visible)
+    gpd.GeoSeries([ocean_extent], crs=gdf_seas.crs).plot(ax=ax, color=tactical_ocean_bg, zorder=1)
+    if gdf_ocean is not None and not gdf_ocean.empty:
+        gdf_ocean.plot(ax=ax, color='#163355', edgecolor='none', zorder=1)
+
+    # 1. Zonas Marítimas navegables con cuadrícula náutica distinguible
+    gdf_seas.plot(ax=ax, facecolor=tactical_sea_zone, edgecolor=tactical_sea_grid, linewidth=0.35, alpha=0.9, zorder=2)
+
+    # 2. Lagos interiores mundiales (Grandes Lagos de EE.UU./Canadá, Baikal, etc. con color de agua)
+    if gdf_lakes is not None and not gdf_lakes.empty:
+        gdf_lakes.plot(ax=ax, facecolor=tactical_sea_zone, edgecolor=tactical_sea_grid, linewidth=0.3, zorder=2)
+
+    # 3. Provincias terrestres en paleta monocromática táctica
+    gdf_provinces.plot(ax=ax, facecolor=tactical_land_fill, edgecolor=tactical_prov_edge, linewidth=0.25, zorder=3)
+
+    # 4. Ríos principales
+    if gdf_rivers is not None and not gdf_rivers.empty:
+        gdf_rivers.plot(ax=ax, color='#38bdf8', linewidth=0.35, alpha=0.75, zorder=3)
+
+    # 5. Fronteras soberanas de alto contraste blanco nítido
+    gdf_countries.boundary.plot(ax=ax, edgecolor=tactical_nation_edge, linewidth=0.88, alpha=0.98, zorder=4)
+    if gdf_admin0_lines is not None and not gdf_admin0_lines.empty:
+        gdf_admin0_lines.plot(ax=ax, color='#ffffff', linewidth=0.88, alpha=0.98, zorder=4)
+
+    # 6. Puntos navales estratégicos
+    for st in straits_mapped:
+        ax.plot(st["lon"], st["lat"], marker='D', color='#fbbf24', markersize=3.2, markeredgecolor='#000000', markeredgewidth=0.5, zorder=5)
 
     ax.set_xlim(-180, 180)
     ax.set_ylim(min_lat, max_lat)
     ax.axis('off')
     plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
     plt.margins(0, 0)
-    plt.savefig(output_dir / "world_provinces_blank.png", dpi=dpi, facecolor='#131d2e', bbox_inches='tight', pad_inches=0)
+    plt.savefig(output_dir / "world_provinces_blank.png", dpi=dpi, facecolor=tactical_ocean_bg, bbox_inches='tight', pad_inches=0)
     plt.close()
     print(" -> Guardado: world_provinces_blank.png")
 

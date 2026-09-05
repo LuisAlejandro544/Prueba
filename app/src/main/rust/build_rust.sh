@@ -6,6 +6,14 @@ if [ -f "$HOME/.cargo/env" ]; then
 fi
 export PATH="$HOME/.cargo/bin:$PATH"
 
+if ! command -v cargo &> /dev/null; then
+    echo "Cargo not found. Bootstrapping Rust toolchain..."
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
+    . "$HOME/.cargo/env"
+    export PATH="$HOME/.cargo/bin:$PATH"
+    rustup target add aarch64-linux-android x86_64-linux-android
+fi
+
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Resolve NDK LLVM toolchain path dynamically

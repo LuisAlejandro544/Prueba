@@ -1,7 +1,10 @@
-fix(map-generator): Corregir zonas oscuras del mapa y agregar fondo oceánico luminoso
+fix(map-generator): Integrar color de mar náutico en mapa táctico, corregir huecos y añadir datasets geoespaciales
 
-- Identificación y resolución del problema de zonas negras/oscuras en el mapa político (world_provinces_political.png): sustitución de polígonos marinos y tonos oscuros residuales por una paleta oceánica luminosa (#0284c7, #0369a1, #38bdf8).
-- Adición de capa base oceánica continua (box -180 a 180 lon, -60 a 84 lat) renderizada en primer orden (zorder=1), garantizando que ningún mar abierto, estrecho o depresión costera muestre fondo negro o vacío.
-- Corrección del lienzo y márgenes de matplotlib (facecolor='#0284c7') para eliminar cualquier artefacto de renderizado oscuro en pantallas móviles de alta densidad.
-- Configuración de capas superpuestas con orden de profundidad estricto: Océano base (zorder 1) -> Zonas marítimas navegables (zorder 2) -> Provincias terrestres políticas (zorder 3) -> Fronteras soberanas de alto contraste (zorder 4) -> Puertos y canales estratégicos (zorder 5-6).
-- Preservación íntegra de la base de datos particionada (world_overview.db, world_provinces.db y world_map.db) y del mapa indexado para detección táctil O(1) (world_provinces_ids.png).
+- Renderizado de mar en mapa táctico (world_provinces_blank.png): Implementada paleta náutica de alto contraste (#132b47 fondo base, #1a3d68 zonas marítimas, #38bdf8 cuadrícula y ríos) y capa oceánica continua continua para que el mar sea claramente visible y distinguible de la tierra (#2d3748) y las fronteras (#ffffff).
+- Corrección de huecos y topología de provincias (ej. EE.UU.): Incorporada la función safe_clean_geometry con make_valid y buffer(0) para reparar geometrías no válidas o auto-intersectadas de Natural Earth, impidiendo que polígonos desaparezcan o generen vacíos.
+- Integración de nuevos datasets de Natural Earth a escala 10m/50m/110m:
+  * Lagos y ríos (ne_10m_lakes, ne_10m_rivers_lake_centerlines): Relleno de agua interior (como los Grandes Lagos de Norteamérica) evitando huecos en países ribereños y aportando rutas fluviales navegables.
+  * Regiones físicas (ne_10m_geography_regions_polys): Detección espacial exacta de biomas (desiertos, cordilleras, tundras, selvas) para el motor de simulación.
+  * Ciudades y centros urbanos (ne_10m_populated_places): Mapeo de poblaciones reales y capitales provinciales.
+  * Puertos marítimos (ne_10m_ports) y base oceánica (ne_10m_ocean).
+- Expansión de SQLite y JSON maestro: Añadidas tablas 'lakes', 'rivers' y 'populated_places' en world_map.db y enriquecimiento de world_map_data.json con ciudades, recursos y terrenos precisos para los algoritmos de IA y combate.
