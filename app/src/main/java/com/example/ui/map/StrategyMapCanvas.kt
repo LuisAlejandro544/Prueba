@@ -35,6 +35,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
@@ -87,9 +88,9 @@ fun StrategyMapCanvas(
     val textMeasurer = rememberTextMeasurer()
     val countryMap = remember(countries) { countries.associateBy { it.id } }
 
-    // Dimensión base del nuevo mapa mundial
-    val defaultMapW = 4096f
-    val defaultMapH = 1675f
+    // Dimensión base del nuevo mapa mundial de alta definición 10M
+    val defaultMapW = 2503f
+    val defaultMapH = 1024f
 
     // Load world_provinces_political.png in background
     LaunchedEffect(Unit) {
@@ -255,7 +256,8 @@ fun StrategyMapCanvas(
                         srcOffset = IntOffset.Zero,
                         srcSize = IntSize(bmp.width, bmp.height),
                         dstOffset = IntOffset(baseLeft.toInt(), baseTop.toInt()),
-                        dstSize = IntSize(mapDisplayW.toInt(), mapDisplayH.toInt())
+                        dstSize = IntSize(mapDisplayW.toInt(), mapDisplayH.toInt()),
+                        filterQuality = FilterQuality.Medium
                     )
                 } else {
                     // Fallback ocean background

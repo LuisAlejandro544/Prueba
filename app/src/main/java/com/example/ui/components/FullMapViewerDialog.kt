@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.withTransform
@@ -176,7 +177,8 @@ fun FullMapViewerDialog(
                                 srcOffset = IntOffset.Zero,
                                 srcSize = IntSize(bmp.width, bmp.height),
                                 dstOffset = IntOffset(baseLeft.toInt(), baseTop.toInt()),
-                                dstSize = IntSize(mapDisplayW.toInt(), mapDisplayH.toInt())
+                                dstSize = IntSize(mapDisplayW.toInt(), mapDisplayH.toInt()),
+                                filterQuality = FilterQuality.Medium
                             )
 
                             // 2. Optional Latin America provinces layer overlay

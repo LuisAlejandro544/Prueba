@@ -654,6 +654,46 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     reefs_shp = try_get_shapefile_path(cache_dir, scale, "reefs", category="physical")
     gdf_reefs = gpd.read_file(reefs_shp).to_crs(epsg=4326) if reefs_shp else None
 
+    # 3.15 Batimetría Marina Multinivel 10M (Fondos oceánicos, plataforma continental y fosas)
+    print("[Batimetría 10M] Cargando capas de profundidad marina para relieve oceánico...")
+    bathy_specs = [
+        ("bathymetry_L_0", 0, "#235b8e", "Plataforma Continental / Aguas Someras"),
+        ("bathymetry_K_200", 200, "#1d4e7c", "Talud Superior (200m)"),
+        ("bathymetry_J_1000", 1000, "#18426c", "Talud Medio (1000m)"),
+        ("bathymetry_I_2000", 2000, "#14375c", "Cuenca Oceánica (2000m)"),
+        ("bathymetry_H_3000", 3000, "#112e4e", "Llanura Abisal (3000m)"),
+        ("bathymetry_G_4000", 4000, "#0e2642", "Fosa Oceánica (4000m)"),
+        ("bathymetry_F_5000", 5000, "#0b1f37", "Fosa Abisal Profunda (5000m)")
+    ]
+    bathymetry_layers = []
+    for b_name, b_depth, b_col, b_desc in bathy_specs:
+        b_shp = try_get_shapefile_path(cache_dir, scale, b_name, category="physical")
+        if b_shp:
+            try:
+                gdf_b = gpd.read_file(b_shp).to_crs(epsg=4326)
+                bathymetry_layers.append({
+                    "name": b_name,
+                    "depth_m": b_depth,
+                    "color": b_col,
+                    "description": b_desc,
+                    "gdf": gdf_b
+                })
+                print(f"[Batimetría 10M] {b_name} ({b_desc}) cargada: {len(gdf_b)} polígonos")
+            except Exception as e:
+                print(f"[Batimetría 10M] Advertencia al procesar {b_name}: {e}")
+
+    # 3.16 Salares, Cuencas Endorreicas y Playas Lacustres (Playas 10M)
+    playas_shp = try_get_shapefile_path(cache_dir, scale, "playas", category="physical")
+    gdf_playas = gpd.read_file(playas_shp).to_crs(epsg=4326) if playas_shp else None
+    if gdf_playas is not None:
+        print(f"[Datos Adicionales] Salares y cuencas endorreicas cargados: {len(gdf_playas)} polígonos")
+
+    # 3.17 Islas menores estratégicas (Minor Islands 10M)
+    islands_shp = try_get_shapefile_path(cache_dir, scale, "minor_islands", category="physical")
+    gdf_minor_islands = gpd.read_file(islands_shp).to_crs(epsg=4326) if islands_shp else None
+    if gdf_minor_islands is not None:
+        print(f"[Datos Adicionales] Islas menores estratégicas cargadas: {len(gdf_minor_islands)} islas")
+
     # 4. Filtrar Antártida y acotar coordenadas de juego
     if exclude_antarctica:
         print("[Geometría] Excluyendo Antártida y acotando latitudes (-60°S a 84°N)...")
@@ -738,6 +778,21 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
         if gdf_reefs is not None:
             try:
                 gdf_reefs = gdf_reefs.clip(bounding_box)
+            except Exception:
+                pass
+        if gdf_playas is not None:
+            try:
+                gdf_playas = gdf_playas.clip(bounding_box)
+            except Exception:
+                pass
+        if gdf_minor_islands is not None:
+            try:
+                gdf_minor_islands = gdf_minor_islands.clip(bounding_box)
+            except Exception:
+                pass
+        for b_layer in bathymetry_layers:
+            try:
+                b_layer["gdf"] = b_layer["gdf"].clip(bounding_box)
             except Exception:
                 pass
     else:
@@ -1918,6 +1973,19 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
         cur.execute("INSERT INTO glaciers (id, name, lat, lon) VALUES (?, ?, ?, ?);",
                     (gl["id"], gl["name"], gl["lat"], gl["lon"]))
 
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS bathymetry (
+        id INTEGER PRIMARY KEY,
+        layer_name TEXT NOT NULL,
+        depth_m INTEGER,
+        color_hex TEXT,
+        description TEXT
+    );
+    """)
+    for idx_b, b_item in enumerate(bathymetry_layers):
+        cur.execute("INSERT INTO bathymetry (id, layer_name, depth_m, color_hex, description) VALUES (?, ?, ?, ?, ?);",
+                    (idx_b + 1, b_item["name"], b_item["depth_m"], b_item["color"], b_item["description"]))
+
     cur.execute("CREATE INDEX idx_provinces_country ON provinces(country_id);")
     cur.execute("CREATE INDEX idx_provinces_terrain ON provinces(terrain);")
     cur.execute("CREATE INDEX idx_provinces_coastal ON provinces(is_coastal);")
@@ -1935,67 +2003,95 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     figsize = (width / dpi, height / dpi)
 
     # A) Mapa Político Mundial con Estética Militar de Gran Estrategia (Hearts of Iron IV Style)
-    print("[Renderizado 1/3] Generando world_provinces_political.png (Estilo Hearts of Iron IV)...")
+    print("[Renderizado 1/3] Generando world_provinces_political.png (Estilo Hearts of Iron IV con Batimetría Marina)...")
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
 
-    # Fondo Oceánico Táctico Almirantazgo Naval
-    hoi4_ocean_deep = '#0a192f'
-    hoi4_ocean_mid = '#0f2642'
-    hoi4_sea_grid = '#38bdf8'
-    hoi4_glacier = '#f1f5f9'
-    hoi4_coastline = '#0f172a'
-    hoi4_railroads = '#334155'
+    # Paleta Táctica de Océano y Elementos Militares
+    hoi4_ocean_deep = '#132b49'      # Azul marino militar noble y vivo (no negro plano)
+    hoi4_ocean_mid = '#18365c'       # Azul oceánico intermedio
+    hoi4_ocean_shelf = '#235084'     # Plataforma continental costera
+    hoi4_sea_grid = '#38bdf8'        # Cuadrícula naval en cian tenue
+    hoi4_glacier = '#e2e8f0'         # Escarcha polar suave (evita manchas blancas cegadoras)
+    hoi4_coastline = '#0f172a'       # Trazo de costa firme
+    hoi4_railroads = '#475569'       # Red de suministros logísticos
 
     fig.patch.set_facecolor(hoi4_ocean_deep)
     ax.set_facecolor(hoi4_ocean_deep)
 
-    # 0. Capa base oceánica total profunda
+    # 0. Capa base oceánica total continua
     ocean_extent = box(-180.0, min_lat, 180.0, max_lat)
     gpd.GeoSeries([ocean_extent], crs=gdf_seas.crs).plot(ax=ax, color=hoi4_ocean_deep, zorder=1)
     if gdf_ocean is not None and not gdf_ocean.empty:
-        gdf_ocean.plot(ax=ax, color=hoi4_ocean_mid, edgecolor='none', zorder=1)
+        gdf_ocean.plot(ax=ax, color=hoi4_ocean_mid, edgecolor='none', zorder=1.1)
 
-    # 1. Zonas Marítimas con cuadrícula e iluminación oceánica naval sobria
-    gdf_seas.plot(ax=ax, color=sea_colors_political, edgecolor='#1e3a8a', linewidth=0.3, alpha=0.92, zorder=2)
+    # 0.1 Batimetría Marina Multinivel 10M (Fondos oceánicos y plataforma continental en gradiente)
+    if bathymetry_layers:
+        # Dibujar de más profundo a más superficial para superponer correctamente
+        for b_layer in reversed(bathymetry_layers):
+            b_gdf = b_layer["gdf"]
+            if b_gdf is not None and not b_gdf.empty:
+                b_gdf.plot(ax=ax, color=b_layer["color"], edgecolor='none', alpha=0.9, zorder=1.3)
+    else:
+        # Respaldo de plataforma continental costera si no están los archivos locales de batimetría
+        if gdf_coastline is not None and not gdf_coastline.empty:
+            try:
+                coast_buffer_wide = gdf_coastline.buffer(0.8)
+                coast_buffer_wide.plot(ax=ax, color=hoi4_ocean_shelf, edgecolor='none', alpha=0.5, zorder=1.2)
+                coast_buffer_near = gdf_coastline.buffer(0.35)
+                coast_buffer_near.plot(ax=ax, color='#2b619e', edgecolor='none', alpha=0.6, zorder=1.3)
+            except Exception:
+                pass
 
-    # 1.1 Cuadrícula náutica de almirantazgo (Graticules de coordenadas de guerra)
+    # 1. Zonas Marítimas Navegables: Delimitación de cartas náuticas (evita rectángulos oscuros desiguales)
+    gdf_seas.plot(ax=ax, facecolor='none', edgecolor='#38bdf8', linewidth=0.32, linestyle=':', alpha=0.28, zorder=2.1)
+
+    # 1.1 Cuadrícula náutica de almirantazgo (Coordenadas tácticas cada 10°)
     if gdf_graticules is not None and not gdf_graticules.empty:
-        gdf_graticules.plot(ax=ax, color='#38bdf8', linewidth=0.2, alpha=0.18, zorder=2.2)
+        gdf_graticules.plot(ax=ax, color='#38bdf8', linewidth=0.18, alpha=0.16, zorder=2.2)
 
     # 1.2 Líneas de navegación mayor (Ecuador, Trópicos y Círculos Polares)
     if gdf_geolines is not None and not gdf_geolines.empty:
-        gdf_geolines.plot(ax=ax, color='#fbbf24', linewidth=0.4, linestyle='--', alpha=0.35, zorder=2.3)
+        gdf_geolines.plot(ax=ax, color='#fbbf24', linewidth=0.38, linestyle='--', alpha=0.32, zorder=2.3)
 
-    # 1.3 Arrecifes y bajíos peligrosos para navegación
+    # 1.3 Arrecifes y bajíos de navegación peligrosa
     if gdf_reefs is not None and not gdf_reefs.empty:
         gdf_reefs.plot(ax=ax, color='#06b6d4', linewidth=0.25, alpha=0.45, zorder=2.4)
 
-    # 2. Lagos mundiales en azul lacustre marino coordinado
-    if gdf_lakes is not None and not gdf_lakes.empty:
-        gdf_lakes.plot(ax=ax, color='#0d2238', edgecolor='#38bdf8', linewidth=0.3, zorder=2.5)
+    # 2. Resplandor y halo costero suave en las costas terrestres (Coastal Glow)
+    if gdf_coastline is not None and not gdf_coastline.empty:
+        gdf_coastline.plot(ax=ax, color='#38bdf8', linewidth=1.2, alpha=0.25, zorder=2.6)
+        gdf_coastline.plot(ax=ax, color='#0284c7', linewidth=0.6, alpha=0.45, zorder=2.7)
 
-    # 3. Provincias terrestres con paleta política militar sobria
-    gdf_provinces.plot(ax=ax, color=prov_political_colors, edgecolor='#1f2937', linewidth=0.22, alpha=0.98, zorder=3)
+    # 3. Provincias terrestres con paleta política militar sobria y líneas de división nítidas
+    gdf_provinces.plot(ax=ax, color=prov_political_colors, edgecolor='#1e293b', linewidth=0.16, alpha=0.98, zorder=3.0)
 
-    # 3.1 Glaciares y nieves perpetuas (Himalaya, Groenlandia, Andes, Svalbard)
+    # 3.1 Salares y cuencas endorreicas (Uyuni, Atacama, etc.)
+    if gdf_playas is not None and not gdf_playas.empty:
+        gdf_playas.plot(ax=ax, color='#cbd5e1', edgecolor='#94a3b8', linewidth=0.25, alpha=0.8, zorder=3.2)
+
+    # 3.2 Glaciares y nieves perpetuas (Groenlandia, Himalaya, Andes) con escarcha polar suave
     if gdf_glaciers is not None and not gdf_glaciers.empty:
-        gdf_glaciers.plot(ax=ax, color=hoi4_glacier, edgecolor='#93c5fd', linewidth=0.3, alpha=0.95, zorder=3.5)
+        gdf_glaciers.plot(ax=ax, color=hoi4_glacier, edgecolor='#7dd3fc', linewidth=0.35, alpha=0.96, zorder=3.5)
 
-    # 4. Red hidrográfica de ríos navegables
+    # 3.3 Lagos mundiales en azul lacustre luminoso coordinado con el agua costera (Grandes Lagos nítidos)
+    if gdf_lakes is not None and not gdf_lakes.empty:
+        gdf_lakes.plot(ax=ax, color='#1e4b7c', edgecolor='#38bdf8', linewidth=0.42, alpha=0.98, zorder=3.7)
+
+    # 4. Red hidrográfica de ríos navegables y estratégicos
     if gdf_rivers is not None and not gdf_rivers.empty:
         gdf_rivers.plot(ax=ax, color='#38bdf8', linewidth=0.35, alpha=0.75, zorder=3.8)
 
-    # 4.1 Línea de costa de alta precisión (Coastline 10m)
+    # 4.1 Línea de costa de alta definición (Coastline 10m)
     if gdf_coastline is not None and not gdf_coastline.empty:
-        gdf_coastline.plot(ax=ax, color=hoi4_coastline, linewidth=0.42, alpha=0.85, zorder=4)
+        gdf_coastline.plot(ax=ax, color=hoi4_coastline, linewidth=0.42, alpha=0.88, zorder=4.0)
 
     # 4.2 Red Ferroviaria Mundial / Eje de Suministros Militares
     if gdf_railroads is not None and not gdf_railroads.empty:
-        gdf_railroads.plot(ax=ax, color=hoi4_railroads, linewidth=0.3, alpha=0.55, zorder=4.2)
+        gdf_railroads.plot(ax=ax, color=hoi4_railroads, linewidth=0.28, alpha=0.55, zorder=4.2)
 
     # 5. Fronteras soberanas de alto contraste (efecto halo internacional HoI4)
-    gdf_countries.boundary.plot(ax=ax, edgecolor='#000000', linewidth=1.4, alpha=0.5, zorder=4.8)
-    gdf_countries.boundary.plot(ax=ax, edgecolor='#ffffff', linewidth=0.85, alpha=0.98, zorder=5)
+    gdf_countries.boundary.plot(ax=ax, edgecolor='#000000', linewidth=1.3, alpha=0.55, zorder=4.8)
+    gdf_countries.boundary.plot(ax=ax, edgecolor='#ffffff', linewidth=0.82, alpha=0.98, zorder=5.0)
 
     # 5.1 Bases Aéreas Estratégicas (Aeropuertos 10m)
     for ap in airports_data_list[:250]:
@@ -2007,7 +2103,7 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
 
     # 7. Dibujar Puertos Principales y Bases Navales (Círculos Cian)
     for pt in ports_mapped:
-        ax.plot(pt["lon"], pt["lat"], marker='o', color='#38bdf8', markersize=3.0, markeredgecolor='#0f172a', markeredgewidth=0.5, zorder=6)
+        ax.plot(pt["lon"], pt["lat"], marker='o', color='#38bdf8', markersize=3.0, markeredgecolor='#0f172a', markeredgewidth=0.5, zorder=6.0)
 
     ax.set_xlim(-180, 180)
     ax.set_ylim(min_lat, max_lat)
@@ -2022,8 +2118,8 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     print("[Renderizado 2/3] Generando world_provinces_blank.png con mar náutico claro...")
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
 
-    tactical_ocean_bg = '#0a192f'      # Azul marino táctico profundo
-    tactical_sea_zone = '#112a45'      # Zonas marítimas navegables
+    tactical_ocean_bg = '#132b49'      # Azul marino militar
+    tactical_ocean_shelf = '#1c406c'   # Aguas costeras
     tactical_sea_grid = '#38bdf8'      # Cuadrícula naval en cian suave
     tactical_land_fill = '#1e293b'     # Tierra táctica en pizarra militar
     tactical_prov_edge = '#334155'     # Bordes de provincia
@@ -2035,19 +2131,26 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     # 0. Capa base oceánica total continua
     gpd.GeoSeries([ocean_extent], crs=gdf_seas.crs).plot(ax=ax, color=tactical_ocean_bg, zorder=1)
     if gdf_ocean is not None and not gdf_ocean.empty:
-        gdf_ocean.plot(ax=ax, color='#0f2642', edgecolor='none', zorder=1)
+        gdf_ocean.plot(ax=ax, color='#18365c', edgecolor='none', zorder=1.1)
+
+    # 0.1 Batimetría en mapa en blanco
+    if bathymetry_layers:
+        for b_layer in reversed(bathymetry_layers):
+            b_gdf = b_layer["gdf"]
+            if b_gdf is not None and not b_gdf.empty:
+                b_gdf.plot(ax=ax, color=b_layer["color"], edgecolor='none', alpha=0.8, zorder=1.3)
 
     # 1. Zonas Marítimas navegables con cuadrícula náutica distinguible
-    gdf_seas.plot(ax=ax, facecolor=tactical_sea_zone, edgecolor='#1e3a8a', linewidth=0.3, alpha=0.9, zorder=2)
+    gdf_seas.plot(ax=ax, facecolor='none', edgecolor='#1e40af', linewidth=0.32, linestyle=':', alpha=0.3, zorder=2.1)
     if gdf_graticules is not None and not gdf_graticules.empty:
-        gdf_graticules.plot(ax=ax, color='#38bdf8', linewidth=0.2, alpha=0.18, zorder=2.2)
+        gdf_graticules.plot(ax=ax, color='#38bdf8', linewidth=0.18, alpha=0.16, zorder=2.2)
 
-    # 2. Lagos interiores mundiales
+    # 2. Lagos interiores mundiales (Grandes Lagos nítidos)
     if gdf_lakes is not None and not gdf_lakes.empty:
-        gdf_lakes.plot(ax=ax, facecolor=tactical_sea_zone, edgecolor=tactical_sea_grid, linewidth=0.3, zorder=2)
+        gdf_lakes.plot(ax=ax, facecolor='#1e4b7c', edgecolor=tactical_sea_grid, linewidth=0.35, zorder=2.5)
 
     # 3. Provincias terrestres en paleta monocromática táctica
-    gdf_provinces.plot(ax=ax, facecolor=tactical_land_fill, edgecolor=tactical_prov_edge, linewidth=0.25, zorder=3)
+    gdf_provinces.plot(ax=ax, facecolor=tactical_land_fill, edgecolor=tactical_prov_edge, linewidth=0.22, zorder=3.0)
 
     # 3.1 Glaciares
     if gdf_glaciers is not None and not gdf_glaciers.empty:
