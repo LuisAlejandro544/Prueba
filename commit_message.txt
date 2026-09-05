@@ -1,6 +1,7 @@
-fix(map-generator): Garantizar cobertura del 100% de países del mundo en SQLite y mapas
+fix(map-generator): Corregir zonas oscuras del mapa y agregar fondo oceánico luminoso
 
-- Implementación de mecanismo de respaldo territorial (fallback): los países sin subdivisiones en Admin 1 (Natural Earth) ahora generan automáticamente una provincia nacional basada en su geometría soberana de Admin 0.
-- Normalización canónica de códigos ISO y diccionario de entidades geopolíticas sin ISO estándar (Francia, Noruega, Somalilandia, Kosovo, Sahara Occidental, microestados y territorios insulares), resolviendo desajustes entre capas de países y provincias.
-- Habilitación de integridad referencial estricta (PRAGMA foreign_keys = ON) en SQLite (world_map.db), asegurando que toda provincia pertenezca a un país existente y que ningún país quede con lista vacía de territorios.
-- Cobertura global completa en mapas ráster: world_provinces_ids.png (detección O(1)), world_provinces_political.png y capas vectoriales GeoJSON para todas las naciones del planeta.
+- Identificación y resolución del problema de zonas negras/oscuras en el mapa político (world_provinces_political.png): sustitución de polígonos marinos y tonos oscuros residuales por una paleta oceánica luminosa (#0284c7, #0369a1, #38bdf8).
+- Adición de capa base oceánica continua (box -180 a 180 lon, -60 a 84 lat) renderizada en primer orden (zorder=1), garantizando que ningún mar abierto, estrecho o depresión costera muestre fondo negro o vacío.
+- Corrección del lienzo y márgenes de matplotlib (facecolor='#0284c7') para eliminar cualquier artefacto de renderizado oscuro en pantallas móviles de alta densidad.
+- Configuración de capas superpuestas con orden de profundidad estricto: Océano base (zorder 1) -> Zonas marítimas navegables (zorder 2) -> Provincias terrestres políticas (zorder 3) -> Fronteras soberanas de alto contraste (zorder 4) -> Puertos y canales estratégicos (zorder 5-6).
+- Preservación íntegra de la base de datos particionada (world_overview.db, world_provinces.db y world_map.db) y del mapa indexado para detección táctil O(1) (world_provinces_ids.png).

@@ -204,8 +204,8 @@ COUNTRY_PALETTE = [
 ]
 
 SEA_ZONE_PALETTE = [
-    "#134e4a", "#0e7490", "#155e75", "#1e3a8a", "#1d4ed8",
-    "#0284c7", "#0369a1", "#0f766e", "#1e40af", "#2563eb"
+    "#0284c7", "#0369a1", "#0284c7", "#0ea5e9", "#38bdf8",
+    "#0284c7", "#2563eb", "#1d4ed8", "#3b82f6", "#0ea5e9"
 ]
 
 
@@ -1415,30 +1415,34 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     # A) Mapa Político Mundial con Mares Navegables, Puntos Estratégicos y Puertos
     print("[Renderizado 1/3] Generando world_provinces_political.png...")
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-    fig.patch.set_facecolor('#0a3641')
-    ax.set_facecolor('#0a3641')
+    fig.patch.set_facecolor('#0284c7')
+    ax.set_facecolor('#0284c7')
 
-    # 1. Zonas Marítimas con cuadrícula e iluminación oceánica
-    gdf_seas.plot(ax=ax, color=sea_colors_political, edgecolor='#164e63', linewidth=0.35, alpha=0.96)
+    # 0. Capa base oceánica total (garantiza que ninguna masa de agua o hueco entre polígonos quede negro)
+    ocean_extent = box(-180.0, min_lat, 180.0, max_lat)
+    gpd.GeoSeries([ocean_extent], crs=gdf_seas.crs).plot(ax=ax, color='#0369a1', zorder=1)
+
+    # 1. Zonas Marítimas con cuadrícula e iluminación oceánica azul brillante
+    gdf_seas.plot(ax=ax, color=sea_colors_political, edgecolor='#38bdf8', linewidth=0.35, alpha=0.95, zorder=2)
     # 2. Provincias terrestres con paleta política corregida
-    gdf_provinces.plot(ax=ax, color=prov_political_colors, edgecolor='#1f2937', linewidth=0.22)
+    gdf_provinces.plot(ax=ax, color=prov_political_colors, edgecolor='#1f2937', linewidth=0.22, zorder=3)
     # 3. Fronteras soberanas de alto contraste
-    gdf_countries.boundary.plot(ax=ax, edgecolor='#ffffff', linewidth=0.9, alpha=0.98)
+    gdf_countries.boundary.plot(ax=ax, edgecolor='#ffffff', linewidth=0.9, alpha=0.98, zorder=4)
 
     # 4. Dibujar Canales y Estrechos Estratégicos (Rombos Dorados)
     for st in straits_mapped:
-        ax.plot(st["lon"], st["lat"], marker='D', color='#fbbf24', markersize=3.8, markeredgecolor='#000000', markeredgewidth=0.6, zorder=5)
+        ax.plot(st["lon"], st["lat"], marker='D', color='#fbbf24', markersize=3.8, markeredgecolor='#000000', markeredgewidth=0.6, zorder=6)
 
     # 5. Dibujar Puertos Principales (Círculos Cian)
     for pt in ports_mapped:
-        ax.plot(pt["lon"], pt["lat"], marker='o', color='#38bdf8', markersize=3.0, markeredgecolor='#0f172a', markeredgewidth=0.5, zorder=4)
+        ax.plot(pt["lon"], pt["lat"], marker='o', color='#38bdf8', markersize=3.0, markeredgecolor='#0f172a', markeredgewidth=0.5, zorder=5)
 
     ax.set_xlim(-180, 180)
     ax.set_ylim(min_lat, max_lat)
     ax.axis('off')
     plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
     plt.margins(0, 0)
-    plt.savefig(output_dir / "world_provinces_political.png", dpi=dpi, facecolor='#0a3641', bbox_inches='tight', pad_inches=0)
+    plt.savefig(output_dir / "world_provinces_political.png", dpi=dpi, facecolor='#0284c7', bbox_inches='tight', pad_inches=0)
     plt.close()
     print(" -> Guardado: world_provinces_political.png")
 
