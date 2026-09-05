@@ -1,18 +1,26 @@
-feat(map): Implementar datasets 10M, estética estilo Hearts of Iron IV y vinculación táctil de provincias
+feat(map): Incorporar relieve sombreado, resplandor interior en fronteras y mejoras cartográficas de gran estrategia
 
-- Integración de Datasets 10M de Máxima Definición:
-  * Incorporación y procesamiento de capas cartográficas Natural Earth 10M: líneas de costa de alta precisión (coastline), campos de hielo y glaciares perpetuos (glaciated_areas), red ferroviaria mundial para suministros (railroads), bases aéreas y aeródromos estratégicos (airports), áreas urbanas (urban_areas), arrecifes marinos (reefs) y cuadrícula náutica de coordenadas de almirantazgo (graticules_10).
-  * Escala 10M establecida como valor predeterminado en el generador de mapas y en el flujo automatizado de GitHub Actions.
+- Relieve Sombreado de Elevación (Hillshade / Shaded Relief):
+  * Integración automatizada del ráster de elevación topográfica de Natural Earth (SR_HR / SR_LR / SR_50M).
+  * Fusión multiplicativa suave (Multiply blend) enmascarada exclusivamente sobre el territorio terrestre.
+  * Otorga volumen táctico y relieve tridimensional a cordilleras montañosas (Andes, Alpes, Himalaya, Rocosas) y valles sin alterar el océano.
 
-- Estética Militar de Gran Estrategia (Hearts of Iron IV):
-  * Paleta de colores nacional militar sobria y desaturada para todas las potencias y países mundiales.
-  * Océano táctico en azul marino profundo de almirantazgo con cuadrícula náutica y delimitación de zonas marítimas operacionales.
-  * Doble trazo de fronteras soberanas con efecto halo para máxima legibilidad bélica.
-  * Visualización de glaciares árticos/andinos/himalayos, ríos estratégicos navegables, puertos navales y estrechos clave.
+- Fronteras con "Resplandor Interior" (Inner Border Glow):
+  * Sustitución de líneas planas por doble trazo y resplandor interior gradual en las fronteras soberanas nacionales estilo Hearts of Iron IV y Victoria 3.
 
-- Vinculación Táctil Precisa en la App Móvil:
-  * Implementado algoritmo de Ray-Casting (Point-in-Polygon) en StrategyMapCanvas para asociar de manera instantánea y precisa los toques del usuario al polígono de la provincia y país correspondiente.
-  * Proximidad adaptativa como método de respaldo optimizado para pantallas táctiles de dispositivos móviles.
+- Jerarquía Visual de Líneas Cartográficas:
+  * Límites provinciales internos atenuados a trazo ultra fino (0.10) y opacidad reducida (0.32) para mantener limpia la visión global del país.
+  * Línea de costa de alta definición (Coastline 10M) con halo de agua marina para resaltar los litorales.
+  * Trazos soberanos de alto impacto para una delimitación geopolítica clara.
 
-- Enriquecimiento de Datos Relacionales (SQLite & JSON):
-  * Incorporación de tablas relacionales 'airports', 'railroads' y 'glaciers' en world_map.db y world_map_data.json.
+- Desacoplamiento de Iconos de la Textura Estática:
+  * Eliminado el horneado de marcadores fijos (aeropuertos, estrechos y puertos) de las imágenes PNG cartográficas.
+  * Toda la infraestructura estratégica se preserva en world_map.db para su renderizado vectorial dinámico y reactivo en Compose en espacio de pantalla (screen-space).
+
+- Batimetría Marina con Degradados Suaves:
+  * Transición tonal continua y armónica de profundidad marina desde fosas abisales (5000m+) hasta la plataforma continental en azul naval táctico.
+  * Reducción de la opacidad de cartas náuticas y cuadrículas para evitar cortes geométricos estridentes.
+
+- Corrección de la Relación de Aspecto (Pixel-Perfect Bounding Box):
+  * Eliminación del recorte por tight bounding en la exportación de Matplotlib.
+  * Ajuste de posición al lienzo completo [0, 0, 1, 1] y verificación dimensional para asegurar alineación matemática 1:1 entre coordenadas geográficas, proyección de píxeles y mapa de IDs.

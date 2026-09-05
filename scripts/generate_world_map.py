@@ -42,7 +42,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.colors import to_hex
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageChops
 
 
 class NpEncoder(json.JSONEncoder):
@@ -278,6 +278,103 @@ def try_get_shapefile_path(cache_dir: Path, scale: str, dataset_name: str, categ
     except Exception as e:
         print(f"[Dataset Opcional] '{dataset_name}' no se pudo cargar a escala {scale}: {e}")
         return None
+
+
+def get_shaded_relief_raster(cache_dir: Path, scale: str) -> Optional[Path]:
+    """
+    Descarga y extrae el dataset ráster de relieve sombreado (Shaded Relief) de Natural Earth.
+    Permite dotar a las cadenas montañosas (Andes, Alpes, Himalaya, Rocosas) de volumen táctico
+    tridimensional estilo gran estrategia (Hearts of Iron IV / Victoria 3).
+    Prioriza 'SR_HR' (10M), con respaldos en 'SR_LR' y 'SR_50M'.
+    """
+    candidates = [
+        ("SR_HR", "10m_raster/SR_HR.zip", "https://naturalearth.s3.amazonaws.com/10m_raster"),
+        ("SR_LR", "10m_raster/SR_LR.zip", "https://naturalearth.s3.amazonaws.com/10m_raster"),
+        ("SR_50M", "50m_raster/SR_50M.zip", "https://naturalearth.s3.amazonaws.com/50m_raster")
+    ]
+    for name, rel_zip, base_url in candidates:
+        zip_path = cache_dir / f"{name}.zip"
+        extract_folder = cache_dir / name
+        if not extract_folder.exists() or not any(extract_folder.glob("*.tif")) and not any(extract_folder.glob("*.TIF")):
+            extract_folder.mkdir(parents=True, exist_ok=True)
+            if not zip_path.exists():
+                urls = [base_url, "https://raw.githubusercontent.com/nvkelso/natural-earth-raster/master/10m_raster"]
+                print(f"[Relieve Sombreado] Intentando descargar {name}...")
+                success = download_file(urls, zip_path)
+                if not success:
+                    continue
+            try:
+                print(f"[Relieve Sombreado] Descomprimiendo {zip_path.name}...")
+                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                    zip_ref.extractall(extract_folder)
+            except Exception as e:
+                print(f"[Relieve Sombreado] Error descomprimiendo {zip_path.name}: {e}")
+                continue
+
+        tif_files = list(extract_folder.glob("*.tif")) + list(extract_folder.glob("*.TIF"))
+        if tif_files:
+            print(f"[Relieve Sombreado] Ráster cargado: {tif_files[0].name} ({tif_files[0].stat().st_size / 1024 / 1024:.1f} MB)")
+            return tif_files[0]
+    return None
+
+
+def apply_shaded_relief_blend(
+    target_image_path: Path,
+    relief_tif_path: Optional[Path],
+    id_map_path: Path,
+    width: int,
+    height: int,
+    min_lat: float,
+    max_lat: float,
+    blend_opacity: float = 0.22
+):
+    """
+    Aplica el relieve sombreado de Natural Earth exclusivamente sobre el territorio terrestre
+    (identificado mediante el mapa de IDs) con modo de fusión Multiply suave.
+    Garantiza que montañas, valles y cordilleras tengan volumen táctico tridimensional sin alterar el océano.
+    """
+    if not relief_tif_path or not relief_tif_path.exists():
+        print(f"[Relieve Sombreado] No hay ráster disponible para {target_image_path.name}, omitiendo.")
+        return
+
+    try:
+        print(f"[Relieve Sombreado] Procesando relieve sombreado para {target_image_path.name}...")
+        with Image.open(relief_tif_path) as r_img:
+            r_w, r_h = r_img.size
+            y0 = int(((90.0 - max_lat) / 180.0) * r_h)
+            y1 = int(((90.0 - min_lat) / 180.0) * r_h)
+            y0 = max(0, min(r_h - 1, y0))
+            y1 = max(y0 + 1, min(r_h, y1))
+
+            cropped_relief = r_img.crop((0, y0, r_w, y1)).convert('L')
+            resized_relief = cropped_relief.resize((width, height), Image.Resampling.BILINEAR)
+
+        with Image.open(target_image_path) as pol_img:
+            pol_rgb = pol_img.convert('RGBA')
+
+        # Cargar mapa de IDs para máscara estricta de territorio terrestre (IDs 1 a 10000)
+        mask_land = None
+        if id_map_path.exists():
+            with Image.open(id_map_path) as id_img:
+                id_rgb = id_img.convert('RGB')
+                id_np = np.array(id_rgb, dtype=np.uint32)
+                ids_val = id_np[:, :, 0] + (id_np[:, :, 1] << 8) + (id_np[:, :, 2] << 16)
+                land_bool = (ids_val > 0) & (ids_val <= 10000)
+                mask_np = np.where(land_bool, int(255 * blend_opacity), 0).astype(np.uint8)
+                mask_land = Image.fromarray(mask_np, mode='L')
+
+        relief_rgb = Image.merge('RGB', (resized_relief, resized_relief, resized_relief))
+        blended = ImageChops.multiply(pol_rgb.convert('RGB'), relief_rgb)
+
+        if mask_land is not None:
+            final_img = Image.composite(blended.convert('RGBA'), pol_rgb, mask_land)
+        else:
+            final_img = Image.blend(pol_rgb, blended.convert('RGBA'), blend_opacity)
+
+        final_img.save(target_image_path, format='PNG')
+        print(f"[Relieve Sombreado] ¡Relieve sombreado fusionado con éxito en {target_image_path.name}!")
+    except Exception as e:
+        print(f"[Relieve Sombreado] Advertencia al procesar relieve sombreado: {e}")
 
 
 def id_to_rgb(numeric_id: int) -> Tuple[int, int, int]:
@@ -654,16 +751,16 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     reefs_shp = try_get_shapefile_path(cache_dir, scale, "reefs", category="physical")
     gdf_reefs = gpd.read_file(reefs_shp).to_crs(epsg=4326) if reefs_shp else None
 
-    # 3.15 Batimetría Marina Multinivel 10M (Fondos oceánicos, plataforma continental y fosas)
-    print("[Batimetría 10M] Cargando capas de profundidad marina para relieve oceánico...")
+    # 3.15 Batimetría Marina Multinivel 10M (Fondos oceánicos, plataforma continental y fosas con degradado suave)
+    print("[Batimetría 10M] Cargando capas de profundidad marina con degradado suave armónico...")
     bathy_specs = [
-        ("bathymetry_L_0", 0, "#235b8e", "Plataforma Continental / Aguas Someras"),
-        ("bathymetry_K_200", 200, "#1d4e7c", "Talud Superior (200m)"),
-        ("bathymetry_J_1000", 1000, "#18426c", "Talud Medio (1000m)"),
-        ("bathymetry_I_2000", 2000, "#14375c", "Cuenca Oceánica (2000m)"),
-        ("bathymetry_H_3000", 3000, "#112e4e", "Llanura Abisal (3000m)"),
-        ("bathymetry_G_4000", 4000, "#0e2642", "Fosa Oceánica (4000m)"),
-        ("bathymetry_F_5000", 5000, "#0b1f37", "Fosa Abisal Profunda (5000m)")
+        ("bathymetry_L_0", 0, "#1c406b", "Plataforma Continental / Aguas Someras"),
+        ("bathymetry_K_200", 200, "#173559", "Talud Superior (200m)"),
+        ("bathymetry_J_1000", 1000, "#132c4b", "Talud Medio (1000m)"),
+        ("bathymetry_I_2000", 2000, "#10243e", "Cuenca Oceánica (2000m)"),
+        ("bathymetry_H_3000", 3000, "#0d1d32", "Llanura Abisal (3000m)"),
+        ("bathymetry_G_4000", 4000, "#0a1728", "Fosa Oceánica (4000m)"),
+        ("bathymetry_F_5000", 5000, "#07111e", "Fosa Abisal Profunda (5000m)")
     ]
     bathymetry_layers = []
     for b_name, b_depth, b_col, b_desc in bathy_specs:
@@ -693,6 +790,9 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     gdf_minor_islands = gpd.read_file(islands_shp).to_crs(epsg=4326) if islands_shp else None
     if gdf_minor_islands is not None:
         print(f"[Datos Adicionales] Islas menores estratégicas cargadas: {len(gdf_minor_islands)} islas")
+
+    # 3.18 Relieve Sombreado de Elevación (Hillshade 10M)
+    relief_raster_path = get_shaded_relief_raster(cache_dir, scale)
 
     # 4. Filtrar Antártida y acotar coordenadas de juego
     if exclude_antarctica:
@@ -2003,16 +2103,16 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     figsize = (width / dpi, height / dpi)
 
     # A) Mapa Político Mundial con Estética Militar de Gran Estrategia (Hearts of Iron IV Style)
-    print("[Renderizado 1/3] Generando world_provinces_political.png (Estilo Hearts of Iron IV con Batimetría Marina)...")
+    print("[Renderizado 1/3] Generando world_provinces_political.png (Estilo Gran Estrategia con Batimetría Suave y Relieve)...")
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+    ax.set_position([0.0, 0.0, 1.0, 1.0])
 
     # Paleta Táctica de Océano y Elementos Militares
-    hoi4_ocean_deep = '#132b49'      # Azul marino militar noble y vivo (no negro plano)
-    hoi4_ocean_mid = '#18365c'       # Azul oceánico intermedio
-    hoi4_ocean_shelf = '#235084'     # Plataforma continental costera
-    hoi4_sea_grid = '#38bdf8'        # Cuadrícula naval en cian tenue
-    hoi4_glacier = '#e2e8f0'         # Escarcha polar suave (evita manchas blancas cegadoras)
-    hoi4_coastline = '#0f172a'       # Trazo de costa firme
+    hoi4_ocean_deep = '#091422'      # Azul marino militar profundo (base abisal)
+    hoi4_ocean_mid = '#0f2238'       # Azul oceánico intermedio
+    hoi4_ocean_shelf = '#183b63'     # Plataforma continental costera
+    hoi4_glacier = '#e2e8f0'         # Escarcha polar suave
+    hoi4_coastline = '#0a1120'       # Trazo de costa de alta definición
     hoi4_railroads = '#475569'       # Red de suministros logísticos
 
     fig.patch.set_facecolor(hoi4_ocean_deep)
@@ -2024,102 +2124,99 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     if gdf_ocean is not None and not gdf_ocean.empty:
         gdf_ocean.plot(ax=ax, color=hoi4_ocean_mid, edgecolor='none', zorder=1.1)
 
-    # 0.1 Batimetría Marina Multinivel 10M (Fondos oceánicos y plataforma continental en gradiente)
+    # 0.1 Batimetría Marina Multinivel 10M con Degradados Suaves
     if bathymetry_layers:
-        # Dibujar de más profundo a más superficial para superponer correctamente
         for b_layer in reversed(bathymetry_layers):
             b_gdf = b_layer["gdf"]
             if b_gdf is not None and not b_gdf.empty:
-                b_gdf.plot(ax=ax, color=b_layer["color"], edgecolor='none', alpha=0.9, zorder=1.3)
+                b_gdf.plot(ax=ax, color=b_layer["color"], edgecolor='none', alpha=0.82, zorder=1.3)
     else:
-        # Respaldo de plataforma continental costera si no están los archivos locales de batimetría
         if gdf_coastline is not None and not gdf_coastline.empty:
             try:
                 coast_buffer_wide = gdf_coastline.buffer(0.8)
-                coast_buffer_wide.plot(ax=ax, color=hoi4_ocean_shelf, edgecolor='none', alpha=0.5, zorder=1.2)
+                coast_buffer_wide.plot(ax=ax, color=hoi4_ocean_shelf, edgecolor='none', alpha=0.45, zorder=1.2)
                 coast_buffer_near = gdf_coastline.buffer(0.35)
-                coast_buffer_near.plot(ax=ax, color='#2b619e', edgecolor='none', alpha=0.6, zorder=1.3)
+                coast_buffer_near.plot(ax=ax, color='#1c406b', edgecolor='none', alpha=0.55, zorder=1.3)
             except Exception:
                 pass
 
-    # 1. Zonas Marítimas Navegables: Delimitación de cartas náuticas (evita rectángulos oscuros desiguales)
-    gdf_seas.plot(ax=ax, facecolor='none', edgecolor='#38bdf8', linewidth=0.32, linestyle=':', alpha=0.28, zorder=2.1)
+    # 1. Zonas Marítimas Navegables: Delimitación de cartas náuticas tenue
+    gdf_seas.plot(ax=ax, facecolor='none', edgecolor='#38bdf8', linewidth=0.22, linestyle=':', alpha=0.18, zorder=2.1)
 
     # 1.1 Cuadrícula náutica de almirantazgo (Coordenadas tácticas cada 10°)
     if gdf_graticules is not None and not gdf_graticules.empty:
-        gdf_graticules.plot(ax=ax, color='#38bdf8', linewidth=0.18, alpha=0.16, zorder=2.2)
+        gdf_graticules.plot(ax=ax, color='#38bdf8', linewidth=0.14, alpha=0.10, zorder=2.2)
 
     # 1.2 Líneas de navegación mayor (Ecuador, Trópicos y Círculos Polares)
     if gdf_geolines is not None and not gdf_geolines.empty:
-        gdf_geolines.plot(ax=ax, color='#fbbf24', linewidth=0.38, linestyle='--', alpha=0.32, zorder=2.3)
+        gdf_geolines.plot(ax=ax, color='#fbbf24', linewidth=0.32, linestyle='--', alpha=0.25, zorder=2.3)
 
     # 1.3 Arrecifes y bajíos de navegación peligrosa
     if gdf_reefs is not None and not gdf_reefs.empty:
-        gdf_reefs.plot(ax=ax, color='#06b6d4', linewidth=0.25, alpha=0.45, zorder=2.4)
+        gdf_reefs.plot(ax=ax, color='#06b6d4', linewidth=0.22, alpha=0.40, zorder=2.4)
 
     # 2. Resplandor y halo costero suave en las costas terrestres (Coastal Glow)
     if gdf_coastline is not None and not gdf_coastline.empty:
-        gdf_coastline.plot(ax=ax, color='#38bdf8', linewidth=1.2, alpha=0.25, zorder=2.6)
-        gdf_coastline.plot(ax=ax, color='#0284c7', linewidth=0.6, alpha=0.45, zorder=2.7)
+        gdf_coastline.plot(ax=ax, color='#38bdf8', linewidth=1.6, alpha=0.18, zorder=2.6)
+        gdf_coastline.plot(ax=ax, color='#0284c7', linewidth=0.8, alpha=0.32, zorder=2.7)
 
-    # 3. Provincias terrestres con paleta política militar sobria y líneas de división nítidas
-    gdf_provinces.plot(ax=ax, color=prov_political_colors, edgecolor='#1e293b', linewidth=0.16, alpha=0.98, zorder=3.0)
+    # 3. Jerarquía Visual: Provincias terrestres con líneas internas ultra finas y discretas
+    gdf_provinces.plot(ax=ax, color=prov_political_colors, edgecolor='#0f172a', linewidth=0.10, alpha=0.32, zorder=3.0)
 
-    # 3.1 Salares y cuencas endorreicas (Uyuni, Atacama, etc.)
+    # 3.1 Salares y cuencas endorreicas
     if gdf_playas is not None and not gdf_playas.empty:
-        gdf_playas.plot(ax=ax, color='#cbd5e1', edgecolor='#94a3b8', linewidth=0.25, alpha=0.8, zorder=3.2)
+        gdf_playas.plot(ax=ax, color='#cbd5e1', edgecolor='#94a3b8', linewidth=0.20, alpha=0.75, zorder=3.2)
 
-    # 3.2 Glaciares y nieves perpetuas (Groenlandia, Himalaya, Andes) con escarcha polar suave
+    # 3.2 Glaciares y nieves perpetuas con escarcha polar suave
     if gdf_glaciers is not None and not gdf_glaciers.empty:
-        gdf_glaciers.plot(ax=ax, color=hoi4_glacier, edgecolor='#7dd3fc', linewidth=0.35, alpha=0.96, zorder=3.5)
+        gdf_glaciers.plot(ax=ax, color=hoi4_glacier, edgecolor='#7dd3fc', linewidth=0.30, alpha=0.95, zorder=3.5)
 
-    # 3.3 Lagos mundiales en azul lacustre luminoso coordinado con el agua costera (Grandes Lagos nítidos)
+    # 3.3 Lagos mundiales coordinados con el agua costera
     if gdf_lakes is not None and not gdf_lakes.empty:
-        gdf_lakes.plot(ax=ax, color='#1e4b7c', edgecolor='#38bdf8', linewidth=0.42, alpha=0.98, zorder=3.7)
+        gdf_lakes.plot(ax=ax, color='#173a60', edgecolor='#38bdf8', linewidth=0.35, alpha=0.98, zorder=3.7)
 
     # 4. Red hidrográfica de ríos navegables y estratégicos
     if gdf_rivers is not None and not gdf_rivers.empty:
-        gdf_rivers.plot(ax=ax, color='#38bdf8', linewidth=0.35, alpha=0.75, zorder=3.8)
+        gdf_rivers.plot(ax=ax, color='#38bdf8', linewidth=0.32, alpha=0.70, zorder=3.8)
 
-    # 4.1 Línea de costa de alta definición (Coastline 10m)
+    # 4.1 Línea de costa de alta definición (Coastline 10M)
     if gdf_coastline is not None and not gdf_coastline.empty:
-        gdf_coastline.plot(ax=ax, color=hoi4_coastline, linewidth=0.42, alpha=0.88, zorder=4.0)
+        gdf_coastline.plot(ax=ax, color=hoi4_coastline, linewidth=0.55, alpha=0.92, zorder=4.1)
 
     # 4.2 Red Ferroviaria Mundial / Eje de Suministros Militares
     if gdf_railroads is not None and not gdf_railroads.empty:
-        gdf_railroads.plot(ax=ax, color=hoi4_railroads, linewidth=0.28, alpha=0.55, zorder=4.2)
+        gdf_railroads.plot(ax=ax, color=hoi4_railroads, linewidth=0.25, alpha=0.50, zorder=4.2)
 
-    # 5. Fronteras soberanas de alto contraste (efecto halo internacional HoI4)
-    gdf_countries.boundary.plot(ax=ax, edgecolor='#000000', linewidth=1.3, alpha=0.55, zorder=4.8)
-    gdf_countries.boundary.plot(ax=ax, edgecolor='#ffffff', linewidth=0.82, alpha=0.98, zorder=5.0)
+    # 5. Fronteras soberanas con "Resplandor Interior" y Doble Trazo Militar (HoI4 Sovereign Borders)
+    gdf_countries.boundary.plot(ax=ax, color='#000000', linewidth=2.2, alpha=0.35, zorder=4.6)
+    gdf_countries.boundary.plot(ax=ax, color='#0f172a', linewidth=1.4, alpha=0.60, zorder=4.8)
+    gdf_countries.boundary.plot(ax=ax, color='#ffffff', linewidth=0.75, alpha=0.95, zorder=5.0)
 
-    # 5.1 Bases Aéreas Estratégicas (Aeropuertos 10m)
-    for ap in airports_data_list[:250]:
-        ax.plot(ap["lon"], ap["lat"], marker='^', color='#818cf8', markersize=2.4, markeredgecolor='#0f172a', markeredgewidth=0.3, zorder=5.5)
-
-    # 6. Dibujar Canales y Estrechos Estratégicos (Rombos Dorados Militares)
-    for st in straits_mapped:
-        ax.plot(st["lon"], st["lat"], marker='D', color='#fbbf24', markersize=4.0, markeredgecolor='#000000', markeredgewidth=0.6, zorder=6.5)
-
-    # 7. Dibujar Puertos Principales y Bases Navales (Círculos Cian)
-    for pt in ports_mapped:
-        ax.plot(pt["lon"], pt["lat"], marker='o', color='#38bdf8', markersize=3.0, markeredgecolor='#0f172a', markeredgewidth=0.5, zorder=6.0)
+    # (Nota: Los iconos de aeropuertos, estrechos y puertos ya NO se hornean en el PNG fijo,
+    # se renderizan dinámicamente en Compose en tiempo de ejecución con screen-space).
 
     ax.set_xlim(-180, 180)
     ax.set_ylim(min_lat, max_lat)
     ax.axis('off')
     plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
     plt.margins(0, 0)
-    plt.savefig(output_dir / "world_provinces_political.png", dpi=dpi, facecolor=hoi4_ocean_deep, bbox_inches='tight', pad_inches=0)
+    pol_out_path = output_dir / "world_provinces_political.png"
+    plt.savefig(pol_out_path, dpi=dpi, facecolor=hoi4_ocean_deep, pad_inches=0)
     plt.close()
+
+    # Corrección de relación de aspecto: Garantizar dimensiones exactas (width x height)
+    with Image.open(pol_out_path) as im:
+        if im.size != (width, height):
+            im = im.resize((width, height), Image.Resampling.BILINEAR)
+            im.save(pol_out_path)
     print(" -> Guardado: world_provinces_political.png")
 
-    # B) Mapa Táctico en Blanco (Lienzo para Mods con Mar Náutico Distinguible y Lagos Rellenos)
-    print("[Renderizado 2/3] Generando world_provinces_blank.png con mar náutico claro...")
+    # B) Mapa Táctico en Blanco (Lienzo Táctico Limpio para Mods y Operaciones)
+    print("[Renderizado 2/3] Generando world_provinces_blank.png con mar náutico claro y sin iconos fijos...")
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+    ax.set_position([0.0, 0.0, 1.0, 1.0])
 
-    tactical_ocean_bg = '#132b49'      # Azul marino militar
-    tactical_ocean_shelf = '#1c406c'   # Aguas costeras
+    tactical_ocean_bg = '#091422'      # Azul marino militar
     tactical_sea_grid = '#38bdf8'      # Cuadrícula naval en cian suave
     tactical_land_fill = '#1e293b'     # Tierra táctica en pizarra militar
     tactical_prov_edge = '#334155'     # Bordes de provincia
@@ -2128,29 +2225,29 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     fig.patch.set_facecolor(tactical_ocean_bg)
     ax.set_facecolor(tactical_ocean_bg)
 
-    # 0. Capa base oceánica total continua
+    # 0. Capa base oceánica
     gpd.GeoSeries([ocean_extent], crs=gdf_seas.crs).plot(ax=ax, color=tactical_ocean_bg, zorder=1)
     if gdf_ocean is not None and not gdf_ocean.empty:
-        gdf_ocean.plot(ax=ax, color='#18365c', edgecolor='none', zorder=1.1)
+        gdf_ocean.plot(ax=ax, color='#0f2238', edgecolor='none', zorder=1.1)
 
-    # 0.1 Batimetría en mapa en blanco
+    # 0.1 Batimetría en mapa en blanco con degradado suave
     if bathymetry_layers:
         for b_layer in reversed(bathymetry_layers):
             b_gdf = b_layer["gdf"]
             if b_gdf is not None and not b_gdf.empty:
-                b_gdf.plot(ax=ax, color=b_layer["color"], edgecolor='none', alpha=0.8, zorder=1.3)
+                b_gdf.plot(ax=ax, color=b_layer["color"], edgecolor='none', alpha=0.75, zorder=1.3)
 
-    # 1. Zonas Marítimas navegables con cuadrícula náutica distinguible
-    gdf_seas.plot(ax=ax, facecolor='none', edgecolor='#1e40af', linewidth=0.32, linestyle=':', alpha=0.3, zorder=2.1)
+    # 1. Zonas Marítimas navegables
+    gdf_seas.plot(ax=ax, facecolor='none', edgecolor='#1e40af', linewidth=0.22, linestyle=':', alpha=0.25, zorder=2.1)
     if gdf_graticules is not None and not gdf_graticules.empty:
-        gdf_graticules.plot(ax=ax, color='#38bdf8', linewidth=0.18, alpha=0.16, zorder=2.2)
+        gdf_graticules.plot(ax=ax, color='#38bdf8', linewidth=0.14, alpha=0.10, zorder=2.2)
 
-    # 2. Lagos interiores mundiales (Grandes Lagos nítidos)
+    # 2. Lagos interiores mundiales
     if gdf_lakes is not None and not gdf_lakes.empty:
-        gdf_lakes.plot(ax=ax, facecolor='#1e4b7c', edgecolor=tactical_sea_grid, linewidth=0.35, zorder=2.5)
+        gdf_lakes.plot(ax=ax, facecolor='#173a60', edgecolor=tactical_sea_grid, linewidth=0.30, zorder=2.5)
 
-    # 3. Provincias terrestres en paleta monocromática táctica
-    gdf_provinces.plot(ax=ax, facecolor=tactical_land_fill, edgecolor=tactical_prov_edge, linewidth=0.22, zorder=3.0)
+    # 3. Provincias terrestres en paleta táctica con jerarquía de líneas
+    gdf_provinces.plot(ax=ax, facecolor=tactical_land_fill, edgecolor=tactical_prov_edge, linewidth=0.12, alpha=0.40, zorder=3.0)
 
     # 3.1 Glaciares
     if gdf_glaciers is not None and not gdf_glaciers.empty:
@@ -2158,30 +2255,35 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
 
     # 4. Ríos principales y líneas de costa
     if gdf_rivers is not None and not gdf_rivers.empty:
-        gdf_rivers.plot(ax=ax, color='#38bdf8', linewidth=0.35, alpha=0.75, zorder=3.8)
+        gdf_rivers.plot(ax=ax, color='#38bdf8', linewidth=0.30, alpha=0.70, zorder=3.8)
     if gdf_coastline is not None and not gdf_coastline.empty:
-        gdf_coastline.plot(ax=ax, color='#0f172a', linewidth=0.4, alpha=0.85, zorder=4)
+        gdf_coastline.plot(ax=ax, color='#0a1120', linewidth=0.45, alpha=0.88, zorder=4.0)
 
-    # 5. Fronteras soberanas de alto contraste blanco nítido
-    gdf_countries.boundary.plot(ax=ax, edgecolor='#000000', linewidth=1.4, alpha=0.5, zorder=4.8)
-    gdf_countries.boundary.plot(ax=ax, edgecolor=tactical_nation_edge, linewidth=0.85, alpha=0.98, zorder=5)
-
-    # 6. Puntos navales estratégicos
-    for st in straits_mapped:
-        ax.plot(st["lon"], st["lat"], marker='D', color='#fbbf24', markersize=3.6, markeredgecolor='#000000', markeredgewidth=0.5, zorder=6)
+    # 5. Fronteras soberanas con resplandor interior
+    gdf_countries.boundary.plot(ax=ax, edgecolor='#000000', linewidth=2.0, alpha=0.35, zorder=4.6)
+    gdf_countries.boundary.plot(ax=ax, edgecolor='#0f172a', linewidth=1.3, alpha=0.55, zorder=4.8)
+    gdf_countries.boundary.plot(ax=ax, edgecolor=tactical_nation_edge, linewidth=0.75, alpha=0.95, zorder=5.0)
 
     ax.set_xlim(-180, 180)
     ax.set_ylim(min_lat, max_lat)
     ax.axis('off')
     plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
     plt.margins(0, 0)
-    plt.savefig(output_dir / "world_provinces_blank.png", dpi=dpi, facecolor=tactical_ocean_bg, bbox_inches='tight', pad_inches=0)
+    blank_out_path = output_dir / "world_provinces_blank.png"
+    plt.savefig(blank_out_path, dpi=dpi, facecolor=tactical_ocean_bg, pad_inches=0)
     plt.close()
+
+    # Corrección de relación de aspecto en mapa en blanco
+    with Image.open(blank_out_path) as im:
+        if im.size != (width, height):
+            im = im.resize((width, height), Image.Resampling.BILINEAR)
+            im.save(blank_out_path)
     print(" -> Guardado: world_provinces_blank.png")
 
     # C) Mapa Indexado por Color (Pixel ID Map: Tierra + Zonas Marítimas)
     print("[Renderizado 3/3] Generando world_provinces_ids.png (Pixel ID Map: Provincias + Mares)...")
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+    ax.set_position([0.0, 0.0, 1.0, 1.0])
     fig.patch.set_facecolor('#000000') # 0 = Mar abierto / Profundo sin asignar
     ax.set_facecolor('#000000')
 
@@ -2195,9 +2297,39 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     ax.axis('off')
     plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
     plt.margins(0, 0)
-    plt.savefig(output_dir / "world_provinces_ids.png", dpi=dpi, facecolor='#000000', bbox_inches='tight', pad_inches=0)
+    ids_out_path = output_dir / "world_provinces_ids.png"
+    plt.savefig(ids_out_path, dpi=dpi, facecolor='#000000', pad_inches=0)
     plt.close()
+
+    # Corrección de relación de aspecto en mapa de IDs con interpolación NEAREST
+    with Image.open(ids_out_path) as im:
+        if im.size != (width, height):
+            im = im.resize((width, height), Image.Resampling.NEAREST)
+            im.save(ids_out_path)
     print(" -> Guardado: world_provinces_ids.png")
+
+    # D) Fusión de Relieve Sombreado (Hillshade / Shaded Relief)
+    if relief_raster_path:
+        apply_shaded_relief_blend(
+            target_image_path=pol_out_path,
+            relief_tif_path=relief_raster_path,
+            id_map_path=ids_out_path,
+            width=width,
+            height=height,
+            min_lat=min_lat,
+            max_lat=max_lat,
+            blend_opacity=0.22
+        )
+        apply_shaded_relief_blend(
+            target_image_path=blank_out_path,
+            relief_tif_path=relief_raster_path,
+            id_map_path=ids_out_path,
+            width=width,
+            height=height,
+            min_lat=min_lat,
+            max_lat=max_lat,
+            blend_opacity=0.18
+        )
 
     # 16. Crear Documentación Actualizada
     with open(output_dir / "README_MAP.md", 'w', encoding='utf-8') as f:
@@ -2205,27 +2337,22 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
 
 Este paquete contiene los mapas de alta definición y datos geográficos completos para el juego de gran estrategia en Android.
 
-## ✨ Novedades y Mejoras Implementadas:
-1. **Base de Datos SQLite (`world_map.db`):**
-   - Base de datos relacional compacta lista para Android (Room/SQLite nativo) y libre de saturación para la ventana de contexto de IA.
-   - Tablas indexadas: `metadata`, `countries`, `provinces`, `sea_zones`, `strategic_straits` y `major_ports`.
-   - Permite consultas ultra rápidas en O(1) y modificaciones directas con apps como DB Browser for SQLite.
-2. **Zonas Marítimas Navegables (Sea Zones):**
-   - Todos los mares, océanos y golfos están segmentados e indexados (IDs a partir de 10001).
-   - Detección táctil directa en el mar y adyacencias topológicas entre mares y costas para convoyes y desembarcos navales.
-3. **Puntos Estratégicos Navales:**
-   - Ubicación exacta y conexión de canales y estrechos cruciales (Canal de Panamá, Suez, Gibraltar, Magallanes, Bósforo, Malaca, Ormuz, etc.).
-4. **Puertos Principales y Capitales:**
-   - Mapeo de las bases navales y puertos de mayor tonelaje del mundo con coordenadas exactas en lat/lon y en píxeles.
-5. **Realce de Islas Pequeñas:**
-   - Las islas pequeñas han sido escaladas geométricamente con preservación de forma para ser visibles y pulsables en pantallas móviles.
-6. **Datos Socioeconómicos y de Terreno:**
-   - Terreno por provincia (`mountains`, `plains`, `jungle`, `desert`, etc.).
-   - Población y mano de obra militar (`manpower`).
-   - Recursos estratégicos (`oil`, `iron_and_metals`, `agriculture`, etc.).
-   - Capacidad industrial y estado de capital nacional.
-7. **Resolución de Inconsistencias:**
-   - Mancha negra de Brasil eliminada; colores nacionales armónicos aplicados; Antártida excluida para optimizar pantalla.
+## ✨ Novedades y Mejoras Implementadas (Versión 2.5):
+1. **Relieve Sombreado de Elevación (Hillshade 10M):**
+   - Integración de ráster de sombreado topográfico de Natural Earth fusionado sobre tierra con modo Multiply.
+   - Las cordilleras (Andes, Alpes, Himalaya, Rocosas) y valles adquieren volumen táctico tridimensional sin alterar el océano.
+2. **Fronteras Soberanas con "Resplandor Interior" (Inner Border Glow):**
+   - Delimitación nacional con doble trazo de contraste y resplandor interior estilo Hearts of Iron IV / Victoria 3.
+3. **Jerarquía Visual de Líneas Cartográficas:**
+   - Fronteras internacionales de alto impacto, líneas de costa de alta precisión con halo de agua marina y límites provinciales ultra finos (linewidth 0.10, alpha 0.32) para no saturar la vista estratégica.
+4. **Desacoplamiento de Iconos de la Textura Estática:**
+   - Los PNG cartográficos quedan limpios de marcadores horneados. Aeropuertos, puertos y estrechos se procesan desde `world_map.db` y se dibujan dinámicamente en Android en espacio de pantalla (screen-space).
+5. **Batimetría Marina con Degradados Suaves:**
+   - Rampa armónica de profundidad marina (0m a 5000m+) en azul militar de almirantazgo sin cortes geométricos bruscos.
+6. **Corrección de Relación de Aspecto (Pixel-Perfect Bounding Box):**
+   - Eliminación de recortes arbitrarios por `tight bounding`. Dimensiones de salida exactamente coincidentes con la proyección `lat_lon_to_pixel` y el mapa de IDs.
+7. **Base de Datos SQLite (`world_map.db`):**
+   - Base de datos relacional compacta lista para Android (Room/SQLite nativo) con índices y topología completa.
 """)
     print("=" * 65)
     print("¡SISTEMA CARTOGRÁFICO Y MARÍTIMO GENERADO EXITOSAMENTE!")
