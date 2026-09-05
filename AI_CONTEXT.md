@@ -49,6 +49,7 @@ El juego divide sus responsabilidades en cinco componentes especializados:
      2. `world_provinces_blank.png`: Mapa táctico monocromático de alto contraste con mar náutico distinguible (#132b47 y #1a3d68), lagos navegables y fronteras soberanas nítidas.
      3. `world_provinces_ids.png`: Mapa indexado por píxel para detección de toques en tiempo `O(1)`: cada provincia y zona marítima tiene un color RGB único `(r, g, b)` tal que `id = R + (G * 256) + (B * 65536)`.
    - Exporta capas vectoriales `world_provinces.geojson`, `world_countries.geojson` y `world_sea_zones.geojson` para posibilitar modificaciones manuales futuras en QGIS o geojson.io.
+   - **Estado de Integración en la App:** Se eliminaron los mapas provisionales anteriores (`blank_province_map.png` y `political_province_map.png`). Los assets de la app integran directamente `world_provinces_political.png` (4096x1675), `world_overview.db`, `world_provinces.db` y `world_map.db`. La selección y jugabilidad estratégica están habilitadas para los países de Latinoamérica sobre la geografía y mapa mundial.
 
 ---
 

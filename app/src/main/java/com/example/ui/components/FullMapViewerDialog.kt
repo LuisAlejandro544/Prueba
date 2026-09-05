@@ -78,7 +78,6 @@ fun FullMapViewerDialog(
     val context = LocalContext.current
     var mapBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var isLoading by remember { mutableStateOf(true) }
-    var isPoliticalMap by remember { mutableStateOf(true) }
     var showProvincesOverlay by remember { mutableStateOf(false) }
 
     var scale by remember { mutableFloatStateOf(1.0f) }
@@ -86,15 +85,15 @@ fun FullMapViewerDialog(
 
     val countryMap = remember(countries) { countries.associateBy { it.id } }
 
-    LaunchedEffect(isPoliticalMap) {
+    LaunchedEffect(Unit) {
         isLoading = true
         withContext(Dispatchers.IO) {
             try {
-                val assetName = if (isPoliticalMap) "political_province_map.png" else "blank_province_map.png"
+                val assetName = "world_provinces_political.png"
                 context.assets.open(assetName).use { stream ->
                     val options = BitmapFactory.Options().apply {
                         inPreferredConfig = Bitmap.Config.RGB_565
-                        inSampleSize = if (isPoliticalMap) 1 else 2
+                        inSampleSize = 1
                     }
                     val bmp = BitmapFactory.decodeStream(stream, null, options)
                     bmp?.let {
@@ -129,7 +128,7 @@ fun FullMapViewerDialog(
                         CircularProgressIndicator(color = StrategyGold)
                         Spacer(modifier = Modifier.size(12.dp))
                         Text(
-                            text = "Cargando Blank_province_map.png...",
+                            text = "Cargando mapa mundial...",
                             color = Color.White,
                             fontSize = 14.sp
                         )
@@ -245,9 +244,9 @@ fun FullMapViewerDialog(
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             FilterChip(
-                                selected = isPoliticalMap,
-                                onClick = { isPoliticalMap = !isPoliticalMap },
-                                label = { Text(if (isPoliticalMap) "Mapa Político" else "Mapa en Blanco", fontSize = 11.sp) },
+                                selected = true,
+                                onClick = { },
+                                label = { Text("Mapa Mundial Político", fontSize = 11.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = StrategyGold.copy(alpha = 0.3f),
                                     selectedLabelColor = StrategyGold

@@ -20,12 +20,18 @@ El proyecto está diseñado bajo una **arquitectura híbrida de alto rendimiento
 
 ## 🚀 Características Principales
 
-- **Cobertura Territorial y Provincias Reales:**
-  - Sistema cartográfico con todos los países del mundo y sus subdivisiones provinciales/departamentales/estatales.
-  - Fronteras soberanas gruesas y fronteras provinciales tácticas claramente diferenciadas.
-- **Selección de Países de Latinoamérica:** México, Colombia, Argentina, Brasil, Perú, Chile, Venezuela, Bolivia, Ecuador, Paraguay, Uruguay, Centroamérica y el Caribe.
-- **Detección Táctil de Provincias en Tiempo O(1):**
-  - Mapa indexado por canal RGB (`world_provinces_ids.png`) que permite saber al instante qué provincia tocó el jugador sin sobrecargar la CPU con cálculos de polígonos.
+- **Nuevo Mapa Mundial Integrado (world_provinces_political.png):**
+  - Incorporado en la aplicación el nuevo lienzo mundial de alta fidelidad (4096x1675) sustituyendo por completo los mapas preliminares anteriores.
+  - Provincias reales, fronteras nítidas, rutas y masas de agua oceánicas y fluviales optimizadas.
+- **Bases de Datos Relacionales SQLite en la App:**
+  - `world_overview.db`: Métricas macroeconómicas, demográficas y diplomáticas de 252 naciones soberanas.
+  - `world_provinces.db`: Datos detallados de provincias, puertos y grafo de adyacencias.
+  - `world_map.db`: Base unificada consolidada con todas las capas y características geoespaciales.
+- **Selección y Jugabilidad en Latinoamérica:**
+  - Facción y naciones jugables enfocadas en América Latina (México, Brasil, Argentina, Colombia, Chile, Perú, Venezuela, Bolivia, Ecuador, Paraguay, Uruguay, Centroamérica y el Caribe), ahora operando sobre la cartografía mundial completa.
+- **Detección Táctil y Renderizado Dinámico:**
+  - Relación de aspecto adaptativa en `StrategyMapCanvas` y visor táctico `FullMapViewerDialog`.
+  - Navegación fluida con zoom, pan y centrado automático en la capital del jugador.
 - **Etiquetas en Espacio de Pantalla:** Indicadores de tropas y nombres que no obstruyen la visualización al hacer zoom táctico.
 - **Motor Nativo Multilenguaje:**
   - Código C++ optimizado con enlace directo por JNI.
@@ -104,7 +110,7 @@ El repositorio incluye tres flujos de trabajo automatizados en `.github/workflow
 - `app/src/main/cpp/lua/`: Código fuente oficial de Lua 5.4.6 en ANSI C puro.
 - `app/src/main/cpp/`: Motor C++ y puente JNI (`strategy_engine.cpp`, `CMakeLists.txt`).
 - `app/src/main/java/com/example/`: Código Kotlin en Jetpack Compose, ViewModels y puente nativo.
-- `app/src/main/assets/`: Recursos del mapa y assets del juego.
+- `app/src/main/assets/`: Mapa mundial de alta fidelidad (`world_provinces_political.png`) y bases de datos relacionales SQLite (`world_overview.db`, `world_provinces.db`, `world_map.db`).
 
 ---
 

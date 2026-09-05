@@ -87,16 +87,15 @@ fun StrategyMapCanvas(
     val textMeasurer = rememberTextMeasurer()
     val countryMap = remember(countries) { countries.associateBy { it.id } }
 
-    // Load political_province_map.png in background (fallback to blank_province_map.png)
+    // Dimensión base del nuevo mapa mundial
+    val defaultMapW = 4096f
+    val defaultMapH = 1675f
+
+    // Load world_provinces_political.png in background
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             try {
-                // Try the pre-colored political map first
-                val stream = try {
-                    context.assets.open("political_province_map.png")
-                } catch (e: Exception) {
-                    context.assets.open("blank_province_map.png")
-                }
+                val stream = context.assets.open("world_provinces_political.png")
                 stream.use { s ->
                     val options = BitmapFactory.Options().apply {
                         inPreferredConfig = Bitmap.Config.RGB_565
@@ -116,15 +115,17 @@ fun StrategyMapCanvas(
     // Helper to center the map on normalized coordinates
     fun centerOnNormalized(normX: Float, normY: Float, targetScale: Float = scale) {
         if (canvasSize.width <= 0f || canvasSize.height <= 0f) return
-        val mapAspect = 5632f / 2048f
+        val mapW = mapBitmap?.width?.toFloat() ?: defaultMapW
+        val mapH = mapBitmap?.height?.toFloat() ?: defaultMapH
+        val mapAspect = mapW / mapH
         val canvasAspect = canvasSize.width / canvasSize.height
         val baseScale = if (canvasAspect > mapAspect) {
-            canvasSize.height / 2048f
+            canvasSize.height / mapH
         } else {
-            canvasSize.width / 5632f
+            canvasSize.width / mapW
         }
-        val mapDisplayW = 5632f * baseScale
-        val mapDisplayH = 2048f * baseScale
+        val mapDisplayW = mapW * baseScale
+        val mapDisplayH = mapH * baseScale
         val baseLeft = (canvasSize.width - mapDisplayW) / 2f
         val baseTop = (canvasSize.height - mapDisplayH) / 2f
 
@@ -158,15 +159,17 @@ fun StrategyMapCanvas(
                         val canvasH = size.height
 
                         // Calculate base map dimensions
-                        val mapAspect = 5632f / 2048f
+                        val mapW = mapBitmap?.width?.toFloat() ?: defaultMapW
+                        val mapH = mapBitmap?.height?.toFloat() ?: defaultMapH
+                        val mapAspect = mapW / mapH
                         val canvasAspect = canvasW / canvasH
                         val baseScale = if (canvasAspect > mapAspect) {
-                            canvasH / 2048f
+                            canvasH / mapH
                         } else {
-                            canvasW / 5632f
+                            canvasW / mapW
                         }
-                        val mapDisplayW = 5632f * baseScale
-                        val mapDisplayH = 2048f * baseScale
+                        val mapDisplayW = mapW * baseScale
+                        val mapDisplayH = mapH * baseScale
                         val baseLeft = (canvasW - mapDisplayW) / 2f
                         val baseTop = (canvasH - mapDisplayH) / 2f
 
@@ -200,11 +203,13 @@ fun StrategyMapCanvas(
             val canvasH = size.height
             canvasSize = size
 
-            val mapAspect = 5632f / 2048f
+            val mapW = mapBitmap?.width?.toFloat() ?: defaultMapW
+            val mapH = mapBitmap?.height?.toFloat() ?: defaultMapH
+            val mapAspect = mapW / mapH
             val canvasAspect = canvasW / canvasH
-            val baseScale = if (canvasAspect > mapAspect) canvasH / 2048f else canvasW / 5632f
-            val mapDisplayW = 5632f * baseScale
-            val mapDisplayH = 2048f * baseScale
+            val baseScale = if (canvasAspect > mapAspect) canvasH / mapH else canvasW / mapW
+            val mapDisplayW = mapW * baseScale
+            val mapDisplayH = mapH * baseScale
             val baseLeft = (canvasW - mapDisplayW) / 2f
             val baseTop = (canvasH - mapDisplayH) / 2f
 
