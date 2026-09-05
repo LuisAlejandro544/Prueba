@@ -158,63 +158,63 @@ MAJOR_CAPITALS = {
     "AUS": {"name": "Canberra", "lat": -35.28, "lon": 149.13}
 }
 
-# Paleta histórica para grandes potencias y países de Latinoamérica
+# Paleta militar y de gran estrategia inspirada en Hearts of Iron IV y juegos de estrategia bélica
 HISTORICAL_COUNTRY_COLORS = {
-    "ARG": "#4da6ff", # Celeste argentino
-    "BRA": "#16a34a", # Verde Brasil
-    "CHL": "#dc2626", # Rojo Chile
-    "COL": "#eab308", # Amarillo Colombia
-    "PER": "#be123c", # Carmesí Perú
-    "MEX": "#0d9488", # Verde esmeralda México
-    "VEN": "#ea580c", # Naranja/Ocre Venezuela
-    "BOL": "#84cc16", # Verde lima Bolivia
-    "PRY": "#ef4444", # Rojo Paraguay
-    "URY": "#38bdf8", # Celeste Uruguay
-    "ECU": "#f59e0b", # Dorado Ecuador
-    "CUB": "#3b82f6", # Azul Cuba
-    "DOM": "#60a5fa", # Azul Caribe
-    "GTM": "#0284c7", # Azul Guatemala
-    "HND": "#2563eb", # Azul Honduras
-    "SLV": "#1d4ed8", # Azul Salvador
-    "NIC": "#0ea5e9", # Celeste Nicaragua
-    "CRI": "#059669", # Verde Costa Rica
-    "PAN": "#b91c1c", # Rojo Panamá
-    "USA": "#1d4ed8", # Azul Estados Unidos
-    "CAN": "#dc2626", # Rojo Canadá
-    "GBR": "#b91c1c", # Rojo británico
-    "FRA": "#2563eb", # Azul Francia
-    "DEU": "#475569", # Gris acero Alemania
-    "RUS": "#991b1b", # Rojo carmesí Rusia
-    "CHN": "#ea580c", # Naranja/Rojo China
-    "JPN": "#e11d48", # Carmesí Japón
-    "ITA": "#15803d", # Verde Italia
-    "ESP": "#d97706", # Gualda/Amarillo España
-    "PRT": "#047857", # Verde Portugal
-    "TUR": "#c026d3", # Magenta Turquía
-    "EGY": "#b45309", # Ocre Egipto
-    "ZAF": "#0d9488", # Verde Sudáfrica
-    "IND": "#06b6d4", # Turquesa India
-    "AUS": "#7c3aed", # Violeta Australia
-    "SAU": "#65a30d", # Verde olivo Arabia
-    "IRN": "#ca8a04", # Mostaza Irán
-    "SWE": "#0284c7", # Azul Suecia
-    "NOR": "#be123c", # Rojo Noruega
-    "FIN": "#e2e8f0", # Blanco/Hielo Finlandia
-    "POL": "#f43f5e", # Rosa fuerte Polonia
-    "UKR": "#eab308"  # Amarillo Ucrania
+    "ARG": "#0284c7", # Celeste patagónico táctico Argentina
+    "BRA": "#15803d", # Verde selva esmeralda Brasil
+    "CHL": "#b91c1c", # Rojo andino Chile
+    "COL": "#ca8a04", # Amarillo tostado Colombia
+    "PER": "#991b1b", # Carmesí Perú
+    "MEX": "#047857", # Verde militar México
+    "VEN": "#c2410c", # Ocre tostado Venezuela
+    "BOL": "#65a30d", # Verde oliva Bolivia
+    "PRY": "#dc2626", # Rojo Paraguay
+    "URY": "#0284c7", # Azul celeste Uruguay
+    "ECU": "#d97706", # Dorado Ecuador
+    "CUB": "#1d4ed8", # Azul Caribe Cuba
+    "DOM": "#2563eb", # Azul República Dominicana
+    "GTM": "#0369a1", # Azul Guatemala
+    "HND": "#1d4ed8", # Azul Honduras
+    "SLV": "#1e40af", # Azul Salvador
+    "NIC": "#0284c7", # Celeste Nicaragua
+    "CRI": "#065f46", # Verde Costa Rica
+    "PAN": "#991b1b", # Rojo Panamá
+    "USA": "#1e3a8a", # Azul naval profundo Estados Unidos
+    "CAN": "#be123c", # Rojo salmón Canadá
+    "GBR": "#881337", # Rojo imperial británico / Borgoña
+    "FRA": "#1d4ed8", # Azul horizonte Francia
+    "DEU": "#3f4854", # Gris feldgrau Alemania
+    "RUS": "#991b1b", # Rojo carmesí profundo Rusia / URSS
+    "CHN": "#b45309", # Amarillo mostaza táctico China
+    "JPN": "#f43f5e", # Carmesí sol naciente Japón
+    "ITA": "#166534", # Verde alpino militar Italia
+    "ESP": "#d97706", # Gualda / Amarillo tostado España
+    "PRT": "#065f46", # Verde oscuro Portugal
+    "TUR": "#7e22ce", # Púrpura otomano Turquía
+    "EGY": "#a16207", # Ocre desierto Egipto
+    "ZAF": "#0f766e", # Verde petróleo Sudáfrica
+    "IND": "#0891b2", # Turquesa Raj británico / India
+    "AUS": "#92400e", # Caqui australiano
+    "SAU": "#4d7c0f", # Verde oliva oscuro Arabia
+    "IRN": "#854d0e", # Mostaza persa Irán
+    "SWE": "#0369a1", # Azul nórdico Suecia
+    "NOR": "#991b1b", # Rojo fiordo Noruega
+    "FIN": "#e2e8f0", # Blanco / Gris invernal Finlandia
+    "POL": "#be123c", # Rosa militar Polonia
+    "UKR": "#ca8a04"  # Amarillo estepa Ucrania
 }
 
 COUNTRY_PALETTE = [
-    "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
-    "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16",
-    "#06b6d4", "#e11d48", "#a855f7", "#d97706", "#059669",
-    "#2563eb", "#dc2626", "#7c3aed", "#ea580c", "#0891b2",
-    "#4f46e5", "#65a30d", "#be123c", "#0d9488", "#b45309"
+    "#1e40af", "#991b1b", "#166534", "#ca8a04", "#6b21a8",
+    "#be123c", "#0f766e", "#c2410c", "#4338ca", "#4d7c0f",
+    "#0891b2", "#881337", "#7e22ce", "#a16207", "#065f46",
+    "#1d4ed8", "#b91c1c", "#581c87", "#9a3412", "#0e7490",
+    "#3730a3", "#3f6212", "#831843", "#115e59", "#854d0e"
 ]
 
 SEA_ZONE_PALETTE = [
-    "#0284c7", "#0369a1", "#0284c7", "#0ea5e9", "#38bdf8",
-    "#0284c7", "#2563eb", "#1d4ed8", "#3b82f6", "#0ea5e9"
+    "#0a192f", "#0d2238", "#112a45", "#133152", "#173b61",
+    "#0f2b48", "#15355b", "#183e6b", "#1b4475", "#0c243f"
 ]
 
 
@@ -614,6 +614,46 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     if gdf_regions is not None:
         print(f"[Datos Adicionales] Regiones físicas mundiales cargadas: {len(gdf_regions)} zonas")
 
+    # 3.9 Línea de Costa de Alta Definición (Coastline)
+    coastline_shp = try_get_shapefile_path(cache_dir, scale, "coastline", category="physical")
+    gdf_coastline = gpd.read_file(coastline_shp).to_crs(epsg=4326) if coastline_shp else None
+    if gdf_coastline is not None:
+        print(f"[Datos Adicionales] Línea de costa de alta precisión cargada: {len(gdf_coastline)} segmentos")
+
+    # 3.10 Glaciares, Campos de Hielo y Nieves Perpetuas (Glaciated Areas)
+    glaciers_shp = try_get_shapefile_path(cache_dir, scale, "glaciated_areas", category="physical")
+    gdf_glaciers = gpd.read_file(glaciers_shp).to_crs(epsg=4326) if glaciers_shp else None
+    if gdf_glaciers is not None:
+        print(f"[Datos Adicionales] Campos de hielo y glaciares cargados: {len(gdf_glaciers)} áreas")
+
+    # 3.11 Red Ferroviaria y Rutas de Suministro Bélico (Railroads)
+    railroads_shp = try_get_shapefile_path(cache_dir, scale, "railroads", category="cultural")
+    gdf_railroads = gpd.read_file(railroads_shp).to_crs(epsg=4326) if railroads_shp else None
+    if gdf_railroads is not None:
+        print(f"[Datos Adicionales] Red ferroviaria mundial cargada: {len(gdf_railroads)} tramos logísticos")
+
+    # 3.12 Bases Aéreas y Aeropuertos Mundiales (Airports)
+    airports_shp = try_get_shapefile_path(cache_dir, scale, "airports", category="cultural")
+    gdf_airports = gpd.read_file(airports_shp).to_crs(epsg=4326) if airports_shp else None
+    if gdf_airports is not None:
+        print(f"[Datos Adicionales] Bases aéreas y aeropuertos mundiales cargados: {len(gdf_airports)} aeródromos")
+
+    # 3.13 Manchas Urbanas e Industriales (Urban Areas)
+    urban_shp = try_get_shapefile_path(cache_dir, scale, "urban_areas", category="cultural")
+    gdf_urban = gpd.read_file(urban_shp).to_crs(epsg=4326) if urban_shp else None
+    if gdf_urban is not None:
+        print(f"[Datos Adicionales] Áreas urbanas e industriales cargadas: {len(gdf_urban)} urbes")
+
+    # 3.14 Líneas Geográficas Tácticas y Cuadrícula Náutica de Almirantazgo
+    geolines_shp = try_get_shapefile_path(cache_dir, scale, "geographic_lines", category="physical")
+    gdf_geolines = gpd.read_file(geolines_shp).to_crs(epsg=4326) if geolines_shp else None
+
+    graticules_shp = try_get_shapefile_path(cache_dir, scale, "graticules_10", category="physical")
+    gdf_graticules = gpd.read_file(graticules_shp).to_crs(epsg=4326) if graticules_shp else None
+
+    reefs_shp = try_get_shapefile_path(cache_dir, scale, "reefs", category="physical")
+    gdf_reefs = gpd.read_file(reefs_shp).to_crs(epsg=4326) if reefs_shp else None
+
     # 4. Filtrar Antártida y acotar coordenadas de juego
     if exclude_antarctica:
         print("[Geometría] Excluyendo Antártida y acotando latitudes (-60°S a 84°N)...")
@@ -658,6 +698,46 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
         if gdf_regions is not None:
             try:
                 gdf_regions = gdf_regions.clip(bounding_box)
+            except Exception:
+                pass
+        if gdf_coastline is not None:
+            try:
+                gdf_coastline = gdf_coastline.clip(bounding_box)
+            except Exception:
+                pass
+        if gdf_glaciers is not None:
+            try:
+                gdf_glaciers = gdf_glaciers.clip(bounding_box)
+            except Exception:
+                pass
+        if gdf_railroads is not None:
+            try:
+                gdf_railroads = gdf_railroads.clip(bounding_box)
+            except Exception:
+                pass
+        if gdf_airports is not None:
+            try:
+                gdf_airports = gdf_airports.cx[:, min_lat:max_lat]
+            except Exception:
+                pass
+        if gdf_urban is not None:
+            try:
+                gdf_urban = gdf_urban.clip(bounding_box)
+            except Exception:
+                pass
+        if gdf_geolines is not None:
+            try:
+                gdf_geolines = gdf_geolines.clip(bounding_box)
+            except Exception:
+                pass
+        if gdf_graticules is not None:
+            try:
+                gdf_graticules = gdf_graticules.clip(bounding_box)
+            except Exception:
+                pass
+        if gdf_reefs is not None:
+            try:
+                gdf_reefs = gdf_reefs.clip(bounding_box)
             except Exception:
                 pass
     else:
@@ -1141,6 +1221,51 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
                         "is_capital": int(pl_row.get('FEATURECLA', '') == 'Admin-0 capital') or int(pl_row.get('adm0cap', 0) == 1)
                     })
 
+    # Estructurar datos de Bases Aéreas y Aeropuertos
+    airports_data_list = []
+    if gdf_airports is not None and not gdf_airports.empty:
+        for ap_i, ap_row in gdf_airports.iterrows():
+            ap_name = str(ap_row.get('name', ap_row.get('NAME', f"Aeropuerto {ap_i+1}"))).strip()
+            ap_geom = ap_row.geometry
+            if ap_name and ap_geom and ap_geom.geom_type == 'Point':
+                ap_lat, ap_lon = float(ap_geom.y), float(ap_geom.x)
+                if min_lat <= ap_lat <= max_lat:
+                    px, py = lat_lon_to_pixel(ap_lat, ap_lon, width, height, min_lat, max_lat)
+                    airports_data_list.append({
+                        "id": ap_i + 1,
+                        "name": ap_name,
+                        "iata_code": str(ap_row.get('iata_code', ap_row.get('gps_code', ''))),
+                        "type": str(ap_row.get('type', 'military_civilian')),
+                        "lat": round(ap_lat, 4),
+                        "lon": round(ap_lon, 4),
+                        "pixel_x": px,
+                        "pixel_y": py
+                    })
+
+    # Estructurar datos de Ferrocarriles (Rutas de Suministro)
+    railroads_data_list = []
+    if gdf_railroads is not None and not gdf_railroads.empty:
+        for rr_i, rr_row in gdf_railroads.iterrows():
+            railroads_data_list.append({
+                "id": rr_i + 1,
+                "featurecla": str(rr_row.get('featurecla', 'Railroad')),
+                "gauge": str(rr_row.get('gauge', 'standard'))
+            })
+
+    # Estructurar datos de Glaciares y Campos de Hielo
+    glaciers_data_list = []
+    if gdf_glaciers is not None and not gdf_glaciers.empty:
+        for gl_i, gl_row in gdf_glaciers.iterrows():
+            gl_geom = gl_row.geometry
+            if gl_geom and not gl_geom.is_empty:
+                gl_cent = gl_geom.centroid
+                glaciers_data_list.append({
+                    "id": gl_i + 1,
+                    "name": str(gl_row.get('name', f"Glaciar {gl_i+1}")),
+                    "lat": round(float(gl_cent.y), 4),
+                    "lon": round(float(gl_cent.x), 4)
+                })
+
     # 12. Guardar capas vectoriales GeoJSON
     print("[Exportación] Guardando capas vectoriales GeoJSON editables...")
     gdf_provinces.to_file(output_dir / "world_provinces.geojson", driver="GeoJSON")
@@ -1151,7 +1276,7 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     print("[Exportación] Guardando dataset maestro en world_map_data.json...")
     full_dataset = {
         "metadata": {
-            "version": "2.1",
+            "version": "2.2",
             "projection": "Equirectangular Cortada (Optimizado Móvil)",
             "bounds": {
                 "min_lon": -180.0,
@@ -1166,6 +1291,9 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
             "total_sea_zones": len(sea_zones_list),
             "total_strategic_straits": len(straits_mapped),
             "total_major_ports": len(ports_mapped),
+            "total_airports": len(airports_data_list),
+            "total_railroads": len(railroads_data_list),
+            "total_glaciers": len(glaciers_data_list),
             "total_lakes": len(lakes_data_list),
             "total_rivers": len(rivers_data_list),
             "total_populated_places": len(places_data_list),
@@ -1176,6 +1304,7 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
         "sea_zones": sea_zones_list,
         "strategic_straits": straits_mapped,
         "major_ports": ports_mapped,
+        "airports": airports_data_list[:500],
         "lakes": lakes_data_list[:200],
         "rivers": rivers_data_list[:200],
         "populated_places": places_data_list[:500]
@@ -1748,12 +1877,54 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
         VALUES (?, ?, ?, ?, ?, ?, ?, ?);
         """, (pl["id"], pl["name"], pl["lat"], pl["lon"], pl["pixel_x"], pl["pixel_y"], pl["population"], pl["is_capital"]))
 
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS airports (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        iata_code TEXT,
+        type TEXT,
+        lat REAL,
+        lon REAL,
+        pixel_x INTEGER,
+        pixel_y INTEGER
+    );
+    """)
+    for ap in airports_data_list:
+        cur.execute("""
+        INSERT INTO airports (id, name, iata_code, type, lat, lon, pixel_x, pixel_y)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+        """, (ap["id"], ap["name"], ap["iata_code"], ap["type"], ap["lat"], ap["lon"], ap["pixel_x"], ap["pixel_y"]))
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS railroads (
+        id INTEGER PRIMARY KEY,
+        featurecla TEXT,
+        gauge TEXT
+    );
+    """)
+    for rr in railroads_data_list:
+        cur.execute("INSERT INTO railroads (id, featurecla, gauge) VALUES (?, ?, ?);",
+                    (rr["id"], rr["featurecla"], rr["gauge"]))
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS glaciers (
+        id INTEGER PRIMARY KEY,
+        name TEXT,
+        lat REAL,
+        lon REAL
+    );
+    """)
+    for gl in glaciers_data_list:
+        cur.execute("INSERT INTO glaciers (id, name, lat, lon) VALUES (?, ?, ?, ?);",
+                    (gl["id"], gl["name"], gl["lat"], gl["lon"]))
+
     cur.execute("CREATE INDEX idx_provinces_country ON provinces(country_id);")
     cur.execute("CREATE INDEX idx_provinces_terrain ON provinces(terrain);")
     cur.execute("CREATE INDEX idx_provinces_coastal ON provinces(is_coastal);")
     cur.execute("CREATE INDEX idx_sea_zones_name ON sea_zones(name);")
     cur.execute("CREATE INDEX idx_master_neighbors_p ON province_neighbors(province_id);")
     cur.execute("CREATE INDEX idx_master_country_borders ON country_borders(country_a);")
+    cur.execute("CREATE INDEX idx_airports_type ON airports(type);")
 
     conn.commit()
     conn.close()
@@ -1763,49 +1934,87 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     dpi = 150
     figsize = (width / dpi, height / dpi)
 
-    # A) Mapa Político Mundial con Mares Navegables, Puntos Estratégicos y Puertos
-    print("[Renderizado 1/3] Generando world_provinces_political.png...")
+    # A) Mapa Político Mundial con Estética Militar de Gran Estrategia (Hearts of Iron IV Style)
+    print("[Renderizado 1/3] Generando world_provinces_political.png (Estilo Hearts of Iron IV)...")
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-    fig.patch.set_facecolor('#0284c7')
-    ax.set_facecolor('#0284c7')
 
-    # 0. Capa base oceánica total (garantiza que ninguna masa de agua o hueco entre polígonos quede negro)
+    # Fondo Oceánico Táctico Almirantazgo Naval
+    hoi4_ocean_deep = '#0a192f'
+    hoi4_ocean_mid = '#0f2642'
+    hoi4_sea_grid = '#38bdf8'
+    hoi4_glacier = '#f1f5f9'
+    hoi4_coastline = '#0f172a'
+    hoi4_railroads = '#334155'
+
+    fig.patch.set_facecolor(hoi4_ocean_deep)
+    ax.set_facecolor(hoi4_ocean_deep)
+
+    # 0. Capa base oceánica total profunda
     ocean_extent = box(-180.0, min_lat, 180.0, max_lat)
-    gpd.GeoSeries([ocean_extent], crs=gdf_seas.crs).plot(ax=ax, color='#0369a1', zorder=1)
+    gpd.GeoSeries([ocean_extent], crs=gdf_seas.crs).plot(ax=ax, color=hoi4_ocean_deep, zorder=1)
     if gdf_ocean is not None and not gdf_ocean.empty:
-        gdf_ocean.plot(ax=ax, color='#0284c7', edgecolor='none', zorder=1)
+        gdf_ocean.plot(ax=ax, color=hoi4_ocean_mid, edgecolor='none', zorder=1)
 
-    # 1. Zonas Marítimas con cuadrícula e iluminación oceánica azul brillante
-    gdf_seas.plot(ax=ax, color=sea_colors_political, edgecolor='#38bdf8', linewidth=0.35, alpha=0.95, zorder=2)
+    # 1. Zonas Marítimas con cuadrícula e iluminación oceánica naval sobria
+    gdf_seas.plot(ax=ax, color=sea_colors_political, edgecolor='#1e3a8a', linewidth=0.3, alpha=0.92, zorder=2)
 
-    # 2. Lagos mundiales en azul lacustre (rellena Grandes Lagos y cuerpos lacustres)
+    # 1.1 Cuadrícula náutica de almirantazgo (Graticules de coordenadas de guerra)
+    if gdf_graticules is not None and not gdf_graticules.empty:
+        gdf_graticules.plot(ax=ax, color='#38bdf8', linewidth=0.2, alpha=0.18, zorder=2.2)
+
+    # 1.2 Líneas de navegación mayor (Ecuador, Trópicos y Círculos Polares)
+    if gdf_geolines is not None and not gdf_geolines.empty:
+        gdf_geolines.plot(ax=ax, color='#fbbf24', linewidth=0.4, linestyle='--', alpha=0.35, zorder=2.3)
+
+    # 1.3 Arrecifes y bajíos peligrosos para navegación
+    if gdf_reefs is not None and not gdf_reefs.empty:
+        gdf_reefs.plot(ax=ax, color='#06b6d4', linewidth=0.25, alpha=0.45, zorder=2.4)
+
+    # 2. Lagos mundiales en azul lacustre marino coordinado
     if gdf_lakes is not None and not gdf_lakes.empty:
-        gdf_lakes.plot(ax=ax, color='#0284c7', edgecolor='#38bdf8', linewidth=0.3, zorder=2)
+        gdf_lakes.plot(ax=ax, color='#0d2238', edgecolor='#38bdf8', linewidth=0.3, zorder=2.5)
 
-    # 3. Provincias terrestres con paleta política corregida
-    gdf_provinces.plot(ax=ax, color=prov_political_colors, edgecolor='#1f2937', linewidth=0.22, zorder=3)
+    # 3. Provincias terrestres con paleta política militar sobria
+    gdf_provinces.plot(ax=ax, color=prov_political_colors, edgecolor='#1f2937', linewidth=0.22, alpha=0.98, zorder=3)
 
-    # 4. Ríos navegables y estratégicos
+    # 3.1 Glaciares y nieves perpetuas (Himalaya, Groenlandia, Andes, Svalbard)
+    if gdf_glaciers is not None and not gdf_glaciers.empty:
+        gdf_glaciers.plot(ax=ax, color=hoi4_glacier, edgecolor='#93c5fd', linewidth=0.3, alpha=0.95, zorder=3.5)
+
+    # 4. Red hidrográfica de ríos navegables
     if gdf_rivers is not None and not gdf_rivers.empty:
-        gdf_rivers.plot(ax=ax, color='#38bdf8', linewidth=0.35, alpha=0.75, zorder=3)
+        gdf_rivers.plot(ax=ax, color='#38bdf8', linewidth=0.35, alpha=0.75, zorder=3.8)
 
-    # 5. Fronteras soberanas de alto contraste
-    gdf_countries.boundary.plot(ax=ax, edgecolor='#ffffff', linewidth=0.9, alpha=0.98, zorder=4)
+    # 4.1 Línea de costa de alta precisión (Coastline 10m)
+    if gdf_coastline is not None and not gdf_coastline.empty:
+        gdf_coastline.plot(ax=ax, color=hoi4_coastline, linewidth=0.42, alpha=0.85, zorder=4)
 
-    # 6. Dibujar Canales y Estrechos Estratégicos (Rombos Dorados)
+    # 4.2 Red Ferroviaria Mundial / Eje de Suministros Militares
+    if gdf_railroads is not None and not gdf_railroads.empty:
+        gdf_railroads.plot(ax=ax, color=hoi4_railroads, linewidth=0.3, alpha=0.55, zorder=4.2)
+
+    # 5. Fronteras soberanas de alto contraste (efecto halo internacional HoI4)
+    gdf_countries.boundary.plot(ax=ax, edgecolor='#000000', linewidth=1.4, alpha=0.5, zorder=4.8)
+    gdf_countries.boundary.plot(ax=ax, edgecolor='#ffffff', linewidth=0.85, alpha=0.98, zorder=5)
+
+    # 5.1 Bases Aéreas Estratégicas (Aeropuertos 10m)
+    for ap in airports_data_list[:250]:
+        ax.plot(ap["lon"], ap["lat"], marker='^', color='#818cf8', markersize=2.4, markeredgecolor='#0f172a', markeredgewidth=0.3, zorder=5.5)
+
+    # 6. Dibujar Canales y Estrechos Estratégicos (Rombos Dorados Militares)
     for st in straits_mapped:
-        ax.plot(st["lon"], st["lat"], marker='D', color='#fbbf24', markersize=3.8, markeredgecolor='#000000', markeredgewidth=0.6, zorder=6)
+        ax.plot(st["lon"], st["lat"], marker='D', color='#fbbf24', markersize=4.0, markeredgecolor='#000000', markeredgewidth=0.6, zorder=6.5)
 
-    # 7. Dibujar Puertos Principales (Círculos Cian)
+    # 7. Dibujar Puertos Principales y Bases Navales (Círculos Cian)
     for pt in ports_mapped:
-        ax.plot(pt["lon"], pt["lat"], marker='o', color='#38bdf8', markersize=3.0, markeredgecolor='#0f172a', markeredgewidth=0.5, zorder=5)
+        ax.plot(pt["lon"], pt["lat"], marker='o', color='#38bdf8', markersize=3.0, markeredgecolor='#0f172a', markeredgewidth=0.5, zorder=6)
 
     ax.set_xlim(-180, 180)
     ax.set_ylim(min_lat, max_lat)
     ax.axis('off')
     plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
     plt.margins(0, 0)
-    plt.savefig(output_dir / "world_provinces_political.png", dpi=dpi, facecolor='#0284c7', bbox_inches='tight', pad_inches=0)
+    plt.savefig(output_dir / "world_provinces_political.png", dpi=dpi, facecolor=hoi4_ocean_deep, bbox_inches='tight', pad_inches=0)
     plt.close()
     print(" -> Guardado: world_provinces_political.png")
 
@@ -1813,44 +2022,50 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     print("[Renderizado 2/3] Generando world_provinces_blank.png con mar náutico claro...")
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
 
-    # Paleta táctica náutica de alto contraste
-    tactical_ocean_bg = '#132b47'      # Azul marino táctico legible
-    tactical_sea_zone = '#1a3d68'      # Zonas marítimas navegables en azul marino medio
+    tactical_ocean_bg = '#0a192f'      # Azul marino táctico profundo
+    tactical_sea_zone = '#112a45'      # Zonas marítimas navegables
     tactical_sea_grid = '#38bdf8'      # Cuadrícula naval en cian suave
-    tactical_land_fill = '#2d3748'     # Tierra táctica en gris pizarra neutro
-    tactical_prov_edge = '#4a5568'     # Bordes de provincia
+    tactical_land_fill = '#1e293b'     # Tierra táctica en pizarra militar
+    tactical_prov_edge = '#334155'     # Bordes de provincia
     tactical_nation_edge = '#ffffff'   # Fronteras internacionales en blanco puro
 
     fig.patch.set_facecolor(tactical_ocean_bg)
     ax.set_facecolor(tactical_ocean_bg)
 
-    # 0. Capa base oceánica total continua (garantiza que el mar siempre tenga color náutico visible)
+    # 0. Capa base oceánica total continua
     gpd.GeoSeries([ocean_extent], crs=gdf_seas.crs).plot(ax=ax, color=tactical_ocean_bg, zorder=1)
     if gdf_ocean is not None and not gdf_ocean.empty:
-        gdf_ocean.plot(ax=ax, color='#163355', edgecolor='none', zorder=1)
+        gdf_ocean.plot(ax=ax, color='#0f2642', edgecolor='none', zorder=1)
 
     # 1. Zonas Marítimas navegables con cuadrícula náutica distinguible
-    gdf_seas.plot(ax=ax, facecolor=tactical_sea_zone, edgecolor=tactical_sea_grid, linewidth=0.35, alpha=0.9, zorder=2)
+    gdf_seas.plot(ax=ax, facecolor=tactical_sea_zone, edgecolor='#1e3a8a', linewidth=0.3, alpha=0.9, zorder=2)
+    if gdf_graticules is not None and not gdf_graticules.empty:
+        gdf_graticules.plot(ax=ax, color='#38bdf8', linewidth=0.2, alpha=0.18, zorder=2.2)
 
-    # 2. Lagos interiores mundiales (Grandes Lagos de EE.UU./Canadá, Baikal, etc. con color de agua)
+    # 2. Lagos interiores mundiales
     if gdf_lakes is not None and not gdf_lakes.empty:
         gdf_lakes.plot(ax=ax, facecolor=tactical_sea_zone, edgecolor=tactical_sea_grid, linewidth=0.3, zorder=2)
 
     # 3. Provincias terrestres en paleta monocromática táctica
     gdf_provinces.plot(ax=ax, facecolor=tactical_land_fill, edgecolor=tactical_prov_edge, linewidth=0.25, zorder=3)
 
-    # 4. Ríos principales
+    # 3.1 Glaciares
+    if gdf_glaciers is not None and not gdf_glaciers.empty:
+        gdf_glaciers.plot(ax=ax, color='#f8fafc', edgecolor='#cbd5e1', linewidth=0.25, zorder=3.4)
+
+    # 4. Ríos principales y líneas de costa
     if gdf_rivers is not None and not gdf_rivers.empty:
-        gdf_rivers.plot(ax=ax, color='#38bdf8', linewidth=0.35, alpha=0.75, zorder=3)
+        gdf_rivers.plot(ax=ax, color='#38bdf8', linewidth=0.35, alpha=0.75, zorder=3.8)
+    if gdf_coastline is not None and not gdf_coastline.empty:
+        gdf_coastline.plot(ax=ax, color='#0f172a', linewidth=0.4, alpha=0.85, zorder=4)
 
     # 5. Fronteras soberanas de alto contraste blanco nítido
-    gdf_countries.boundary.plot(ax=ax, edgecolor=tactical_nation_edge, linewidth=0.88, alpha=0.98, zorder=4)
-    if gdf_admin0_lines is not None and not gdf_admin0_lines.empty:
-        gdf_admin0_lines.plot(ax=ax, color='#ffffff', linewidth=0.88, alpha=0.98, zorder=4)
+    gdf_countries.boundary.plot(ax=ax, edgecolor='#000000', linewidth=1.4, alpha=0.5, zorder=4.8)
+    gdf_countries.boundary.plot(ax=ax, edgecolor=tactical_nation_edge, linewidth=0.85, alpha=0.98, zorder=5)
 
     # 6. Puntos navales estratégicos
     for st in straits_mapped:
-        ax.plot(st["lon"], st["lat"], marker='D', color='#fbbf24', markersize=3.2, markeredgecolor='#000000', markeredgewidth=0.5, zorder=5)
+        ax.plot(st["lon"], st["lat"], marker='D', color='#fbbf24', markersize=3.6, markeredgecolor='#000000', markeredgewidth=0.5, zorder=6)
 
     ax.set_xlim(-180, 180)
     ax.set_ylim(min_lat, max_lat)
@@ -1916,8 +2131,8 @@ Este paquete contiene los mapas de alta definición y datos geográficos complet
 
 def main():
     parser = argparse.ArgumentParser(description="Generador de Mapas Mundiales Estratégicos.")
-    parser.add_argument("--scale", choices=["10m", "50m", "110m"], default="50m",
-                        help="Escala cartográfica de Natural Earth (10m, 50m o 110m).")
+    parser.add_argument("--scale", choices=["10m", "50m", "110m"], default="10m",
+                        help="Escala cartográfica de Natural Earth (10m, 50m o 110m). Default: 10m.")
     parser.add_argument("--width", type=int, default=4096, help="Ancho en píxeles (default: 4096).")
     parser.add_argument("--height", type=int, default=2048, help="Alto en píxeles (default: 2048).")
     parser.add_argument("--output-dir", type=str, default="map_data", help="Directorio de salida.")

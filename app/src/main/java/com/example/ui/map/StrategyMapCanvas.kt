@@ -180,21 +180,32 @@ fun StrategyMapCanvas(
                         val normTapX = (virtualX - baseLeft) / mapDisplayW
                         val normTapY = (virtualY - baseTop) / mapDisplayH
 
-                        // Find closest province center
-                        var closestProv: Province? = null
-                        var minDistance = Float.MAX_VALUE
-
+                        // 1. Detección precisa de toque dentro del polígono territorial (Point-in-Polygon)
+                        var matchedProv: Province? = null
                         for (prov in provinces) {
-                            val dist = hypot(normTapX - prov.centerNormalizedX, normTapY - prov.centerNormalizedY)
-                            val hitRadius = 0.040f
-                            if (dist < hitRadius && dist < minDistance) {
-                                minDistance = dist
-                                closestProv = prov
+                            if (prov.boundaryPointsNormalized.isNotEmpty() &&
+                                isPointInPolygon(normTapX, normTapY, prov.boundaryPointsNormalized)
+                            ) {
+                                matchedProv = prov
+                                break
                             }
                         }
 
-                        if (closestProv != null) {
-                            onProvinceSelected(closestProv)
+                        // 2. Si no cayó dentro de un polígono cerrado estricto, buscar la provincia/país más cercano
+                        if (matchedProv == null) {
+                            var minDistance = Float.MAX_VALUE
+                            val touchRadius = 0.065f // Radio táctil optimizado para pantallas táctiles móviles
+                            for (prov in provinces) {
+                                val dist = hypot(normTapX - prov.centerNormalizedX, normTapY - prov.centerNormalizedY)
+                                if (dist < touchRadius && dist < minDistance) {
+                                    minDistance = dist
+                                    matchedProv = prov
+                                }
+                            }
+                        }
+
+                        if (matchedProv != null) {
+                            onProvinceSelected(matchedProv)
                         }
                     }
                 }
@@ -514,4 +525,25 @@ private fun formatTroopCount(troops: Long): String {
         troops >= 1_000 -> String.format("%.1fK", troops / 1_000.0)
         else -> troops.toString()
     }
+}
+
+/**
+ * Algoritmo de Ray-Casting para determinar si un punto táctil (px, py)
+ * cae dentro del polígono delimitador de una provincia.
+ */
+private fun isPointInPolygon(px: Float, py: Float, polygon: List<Pair<Float, Float>>): Boolean {
+    if (polygon.size < 3) return false
+    var inside = false
+    var j = polygon.size - 1
+    for (i in polygon.indices) {
+        val (xi, yi) = polygon[i]
+        val (xj, yj) = polygon[j]
+        val intersect = ((yi > py) != (yj > py)) &&
+                (px < (xj - xi) * (py - yi) / (yj - yi) + xi)
+        if (intersect) {
+            inside = !inside
+        }
+        j = i
+    }
+    return inside
 }

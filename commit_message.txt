@@ -1,8 +1,18 @@
-feat(map): Integrar mapa mundial de alta fidelidad y bases de datos SQLite en la app
+feat(map): Implementar datasets 10M, estética estilo Hearts of Iron IV y vinculación táctil de provincias
 
-- Reemplazo y eliminación de mapas anteriores: Se eliminaron los mapas provisionales (political_province_map.png y blank_province_map.png) y se integró el nuevo mapa mundial de alta fidelidad (world_provinces_political.png, 4096x1675) en assets.
-- Integración de bases de datos relacionales SQLite: Incorporados en los assets de la aplicación world_overview.db (datos macro y geopolíticos de 252 países), world_provinces.db (provincias globales, puertos y grafo de adyacencias) y world_map.db (base maestra unificada).
-- Adaptación dinámica del visor y canvas táctico:
-  * StrategyMapCanvas: Implementado cálculo dinámico del aspect ratio para renderizado preciso del nuevo lienzo global y centrado automático en capitales de la facción elegida.
-  * FullMapViewerDialog: Adaptado para visualización mundial en alta resolución con controles táctiles fluidos (zoom, pan, centrado y capas estratégicas).
-- Alcance de jugabilidad enfocado: Habilitada la selección y jugabilidad estratégica de todos los países de Latinoamérica sobre el nuevo mapa y geografía mundial.
+- Integración de Datasets 10M de Máxima Definición:
+  * Incorporación y procesamiento de capas cartográficas Natural Earth 10M: líneas de costa de alta precisión (coastline), campos de hielo y glaciares perpetuos (glaciated_areas), red ferroviaria mundial para suministros (railroads), bases aéreas y aeródromos estratégicos (airports), áreas urbanas (urban_areas), arrecifes marinos (reefs) y cuadrícula náutica de coordenadas de almirantazgo (graticules_10).
+  * Escala 10M establecida como valor predeterminado en el generador de mapas y en el flujo automatizado de GitHub Actions.
+
+- Estética Militar de Gran Estrategia (Hearts of Iron IV):
+  * Paleta de colores nacional militar sobria y desaturada para todas las potencias y países mundiales.
+  * Océano táctico en azul marino profundo de almirantazgo con cuadrícula náutica y delimitación de zonas marítimas operacionales.
+  * Doble trazo de fronteras soberanas con efecto halo para máxima legibilidad bélica.
+  * Visualización de glaciares árticos/andinos/himalayos, ríos estratégicos navegables, puertos navales y estrechos clave.
+
+- Vinculación Táctil Precisa en la App Móvil:
+  * Implementado algoritmo de Ray-Casting (Point-in-Polygon) en StrategyMapCanvas para asociar de manera instantánea y precisa los toques del usuario al polígono de la provincia y país correspondiente.
+  * Proximidad adaptativa como método de respaldo optimizado para pantallas táctiles de dispositivos móviles.
+
+- Enriquecimiento de Datos Relacionales (SQLite & JSON):
+  * Incorporación de tablas relacionales 'airports', 'railroads' y 'glaciers' en world_map.db y world_map_data.json.

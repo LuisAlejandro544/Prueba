@@ -41,14 +41,15 @@ Plan de evolución estratégica y técnica para el juego, su mini motor nativo y
 
 ### ⏳ Fase 4: Integración del Mapa Mundial en el Motor y Movimiento Táctico
 - [x] Reemplazo y eliminación de mapas provisionales anteriores (`blank_province_map.png` y `political_province_map.png`).
-- [x] Integración en assets del nuevo mapa mundial de alta fidelidad `world_provinces_political.png`.
-- [x] Integración de bases de datos relacionales SQLite en assets (`world_overview.db`, `world_provinces.db`, `world_map.db`).
+- [x] Integración en assets del nuevo mapa mundial de alta fidelidad `world_provinces_political.png` con estética Hearts of Iron IV.
+- [x] Incorporación de datasets 10M de máxima definición (costas, glaciares, ferrocarriles, aeropuertos, áreas urbanas, arrecifes y cuadrículas navales).
+- [x] Integración de bases de datos relacionales SQLite en assets (`world_overview.db`, `world_provinces.db`, `world_map.db`) con tablas ampliadas de aeropuertos, ferrocarriles y glaciares.
+- [x] Vinculación táctil precisa en Compose mediante algoritmo de Ray-Casting (Point-in-Polygon) y búsqueda de proximidad adaptativa para móviles.
 - [x] Adaptación de relación de aspecto dinámica y centrado de facción en `StrategyMapCanvas` y `FullMapViewerDialog`.
+- [x] Selección interactiva de provincias y países en el mapa mundial con respuesta háptica/visual.
 - [x] Mantenimiento de jugabilidad y selección táctica para los países de Latinoamérica sobre el nuevo mapa global.
-- [ ] Detección táctil por píxel en Compose utilizando el mapa indexado de IDs.
-- [ ] Selección interactiva de provincias y regimientos militares en el mapa.
-- [ ] Trazado de rutas de movimiento de tropas entre provincias vecinas utilizando la lista de adyacencias calculada.
-- [ ] Implementación de pathfinding A* nativo en Rust para cálculo instantáneo de rutas.
+- [ ] Trazado interactivo de rutas de movimiento y asedio de tropas entre provincias vecinas utilizando el grafo de adyacencias.
+- [ ] Implementación de pathfinding A* nativo en Rust para cálculo instantáneo de rutas operacionales.
 - [ ] Sistema de combate y asedio ejecutado mediante `rust_strategy_core_calculate_combat`:
   - Modificadores de terreno (montaña, selva, llanura).
   - Bonificaciones defensivas y desgaste militar.

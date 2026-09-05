@@ -50,10 +50,10 @@ Detalle de la jerarquía de directorios, módulos y componentes del juego, su mi
             ├── AndroidManifest.xml    # Manifiesto de Android (orientación landscape y permisos)
             │
             ├── assets/                # Recursos y bases de datos del juego
-            │   ├── world_provinces_political.png # Mapa mundial político integrado (4096x1675)
+            │   ├── world_provinces_political.png # Mapa mundial político integrado estilo HoI4 (4096x1675)
             │   ├── world_overview.db             # Base SQLite ligera de 252 países soberanos
             │   ├── world_provinces.db            # Base SQLite de provincias y topología de vecinos
-            │   └── world_map.db                  # Base SQLite unificada maestra con lagos, ríos y puertos
+            │   └── world_map.db                  # Base SQLite unificada maestra con lagos, ríos, puertos, aeropuertos y ferrocarriles
             │
             ├── cpp/                   # Mini Motor Nativo en C++20 y Lua
             │   ├── CMakeLists.txt     # Script de compilación CMake (compila C++, Lua y enlaza Rust)

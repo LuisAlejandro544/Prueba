@@ -20,18 +20,21 @@ El proyecto está diseñado bajo una **arquitectura híbrida de alto rendimiento
 
 ## 🚀 Características Principales
 
-- **Nuevo Mapa Mundial Integrado (world_provinces_political.png):**
-  - Incorporado en la aplicación el nuevo lienzo mundial de alta fidelidad (4096x1675) sustituyendo por completo los mapas preliminares anteriores.
-  - Provincias reales, fronteras nítidas, rutas y masas de agua oceánicas y fluviales optimizadas.
+- **Cartografía Militar estilo Hearts of Iron IV (world_provinces_political.png):**
+  - Incorporado en la aplicación el lienzo mundial de alta fidelidad (4096x1675) con estética militar de gran estrategia inspirada en *Hearts of Iron IV*.
+  - Paleta de colores nacional sobria y desaturada, océano táctico en azul marino de almirantazgo (`#0a192f`) con cuadrícula de coordenadas navales, doble trazo en fronteras soberanas con halo internacional, y glaciares árticos/andinos/himalayos delimitados.
+  - Provincias reales, fronteras nítidas, rutas, zonas marítimas navegables y masas de agua oceánicas y fluviales optimizadas.
+- **Datasets Cartográficos 10M de Máxima Resolución:**
+  - Capas de 10m integradas: línea de costa de alta definición, glaciares y nieves perpetuas, red ferroviaria para suministros bélicos, aeródromos/bases aéreas estratégicas, áreas urbanas, arrecifes y cuadrículas de coordenadas.
 - **Bases de Datos Relacionales SQLite en la App:**
   - `world_overview.db`: Métricas macroeconómicas, demográficas y diplomáticas de 252 naciones soberanas.
   - `world_provinces.db`: Datos detallados de provincias, puertos y grafo de adyacencias.
-  - `world_map.db`: Base unificada consolidada con todas las capas y características geoespaciales.
+  - `world_map.db`: Base unificada consolidada con todas las capas y características geoespaciales, ampliada con tablas de `airports`, `railroads` y `glaciers`.
 - **Selección y Jugabilidad en Latinoamérica:**
-  - Facción y naciones jugables enfocadas en América Latina (México, Brasil, Argentina, Colombia, Chile, Perú, Venezuela, Bolivia, Ecuador, Paraguay, Uruguay, Centroamérica y el Caribe), ahora operando sobre la cartografía mundial completa.
-- **Detección Táctil y Renderizado Dinámico:**
-  - Relación de aspecto adaptativa en `StrategyMapCanvas` y visor táctico `FullMapViewerDialog`.
-  - Navegación fluida con zoom, pan y centrado automático en la capital del jugador.
+  - Facción y naciones jugables enfocadas en América Latina (México, Brasil, Argentina, Colombia, Chile, Perú, Venezuela, Bolivia, Ecuador, Paraguay, Uruguay, Centroamérica y el Caribe), operando sobre la cartografía mundial completa.
+- **Detección Táctil por Ray-Casting (Point-in-Polygon):**
+  - Vinculación precisa entre los toques en pantalla y las provincias/países mediante prueba geométrica de polígono cerrado y búsqueda de proximidad adaptativa para móviles.
+  - Relación de aspecto adaptativa en `StrategyMapCanvas` y visor táctico `FullMapViewerDialog` con centrado automático en la capital del jugador.
 - **Etiquetas en Espacio de Pantalla:** Indicadores de tropas y nombres que no obstruyen la visualización al hacer zoom táctico.
 - **Motor Nativo Multilenguaje:**
   - Código C++ optimizado con enlace directo por JNI.

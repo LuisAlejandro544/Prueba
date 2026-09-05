@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       scale_detail:
-        description: 'Nivel de detalle geográfico (10m = Ultra detallado, 50m = Equilibrado recomendado, 110m = Rápido)'
+        description: 'Nivel de detalle geográfico (10m = Ultra detallado máxima definición, 50m = Equilibrado, 110m = Rápido)'
         required: true
-        default: '50m'
+        default: '10m'
         type: choice
         options:
           - '10m'

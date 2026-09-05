@@ -36,20 +36,19 @@ El juego divide sus responsabilidades en cinco componentes especializados:
 
 5. **Pipeline de Cartografía Global & Datos GIS (Python + GitHub Actions):**
    - Archivos: `.github/workflows/generate-world-map.yml` y `scripts/generate_world_map.py`.
+   - **Escala 10M Predeterminada:** Configuración por defecto a escala 10m (máxima resolución de Natural Earth) para una definición cartográfica superior.
    - Genera mapas con el 100% de los países del mundo y sus provincias reales con fuentes abiertas de Natural Earth (`Admin 0` y `Admin 1`), incorporando un mecanismo de respaldo territorial (*fallback*) que convierte la geometría soberana en provincia nacional para aquellas naciones sin subdivisiones en Admin 1.
-   - Corrige anomalías topológicas y huecos en provincias (ej. Estados Unidos y enclaves insulares) aplicando validación y limpieza geométrica estricta (`safe_clean_geometry` con `make_valid` y `buffer(0)`).
-   - Integra datasets geoespaciales extendidos de Natural Earth: lagos (`lakes`), ríos principales (`rivers_lake_centerlines`), regiones geográficas físicas (`geography_regions_polys`), centros urbanos poblados (`populated_places`), puertos oficiales (`ports`) y capa continua oceánica (`ocean`).
-   - Produce tres bases de datos SQLite relacionales indexadas con integridad referencial:
-     1. `world_overview.db`: Base ligera orientada a diplomacia, selección de país y consultas de IA (países, fronteras internacionales, capitales y métricas macroeconómicas) que evita saturar la ventana de contexto.
-     2. `world_provinces.db`: Base detallada para el motor de simulación móvil (provincias, grafo relacional de adyacencias `province_neighbors` para pathfinding A*, recursos y mares navegables).
-     3. `world_map.db`: Base maestra unificada con todas las capas consolidadas, incluyendo tablas de lagos, ríos, asentamientos urbanos y puertos.
-   - Produce `world_map_data.json` con metadatos completos y estructuras de países, provincias, zonas marítimas, estrechos, puertos, lagos, ríos y ciudades.
-   - Renderiza tres variantes cartográficas en PNG de alta resolución:
-     1. `world_provinces_political.png`: Mapa político con colores soberanos históricos, zonas marítimas luminosas (#0284c7), lagos rellenos de agua y fronteras blancas.
-     2. `world_provinces_blank.png`: Mapa táctico monocromático de alto contraste con mar náutico distinguible (#132b47 y #1a3d68), lagos navegables y fronteras soberanas nítidas.
-     3. `world_provinces_ids.png`: Mapa indexado por píxel para detección de toques en tiempo `O(1)`: cada provincia y zona marítima tiene un color RGB único `(r, g, b)` tal que `id = R + (G * 256) + (B * 65536)`.
-   - Exporta capas vectoriales `world_provinces.geojson`, `world_countries.geojson` y `world_sea_zones.geojson` para posibilitar modificaciones manuales futuras en QGIS o geojson.io.
-   - **Estado de Integración en la App:** Se eliminaron los mapas provisionales anteriores (`blank_province_map.png` y `political_province_map.png`). Los assets de la app integran directamente `world_provinces_political.png` (4096x1675), `world_overview.db`, `world_provinces.db` y `world_map.db`. La selección y jugabilidad estratégica están habilitadas para los países de Latinoamérica sobre la geografía y mapa mundial.
+   - Corrige anomalías topológicas y huecos en provincias aplicando validación y limpieza geométrica estricta (`safe_clean_geometry` con `make_valid` y `buffer(0)`).
+   - **Datasets 10M de Alta Fidelidad Integrados:** Costas de alta definición (`coastline`), campos de hielo y glaciares perpetuos (`glaciated_areas`), red ferroviaria mundial (`railroads`), bases aéreas y aeropuertos (`airports`), manchas urbanas (`urban_areas`), arrecifes de coral (`reefs`), cuadrícula de coordenadas náuticas (`graticules_10`), líneas geográficas tácticas (`geographic_lines`), lagos (`lakes`), ríos (`rivers_lake_centerlines`), regiones físicas (`geography_regions_polys`), urbes pobladas (`populated_places`) y puertos oficiales (`ports`).
+   - **Estética Militar de Gran Estrategia (Hearts of Iron IV Style):**
+     - Océano táctico en azul marino de almirantazgo (`#0a192f`) con cuadrícula de coordenadas navales discretas.
+     - Paleta de naciones militar sobria y desaturada con alto contraste sobre el lienzo oceánico.
+     - Doble trazo en fronteras soberanas (halo exterior oscuro y línea interior nítida blanca) simulando los mapas de operaciones de estados mayores.
+     - Glaciares y campos de hielo árticos/andinos/himalayos destacados en blanco escarcha táctico (`#f1f5f9`).
+     - Trazado de vías ferroviarias de suministro logístico y aeródromos militares.
+   - Produce bases de datos SQLite relacionales indexadas con integridad referencial (`world_overview.db`, `world_provinces.db` y `world_map.db`), ampliadas con tablas de `airports`, `railroads` y `glaciers`.
+   - **Vinculación Táctil en la App:** Algoritmo de Ray-Casting (Point-in-Polygon) para detectar el toque exacto dentro de los polígonos provinciales y selección de proximidad adaptativa para pantallas móviles en `StrategyMapCanvas`.
+   - **Estado de Integración en la App:** Los assets de la app integran directamente `world_provinces_political.png` (4096x1675), `world_overview.db`, `world_provinces.db` y `world_map.db`. La selección y jugabilidad estratégica están habilitadas para los países de Latinoamérica sobre la geografía y mapa mundial.
 
 ---
 
