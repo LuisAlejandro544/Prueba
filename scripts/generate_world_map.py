@@ -204,8 +204,8 @@ COUNTRY_PALETTE = [
 ]
 
 SEA_ZONE_PALETTE = [
-    "#1e293b", "#0f172a", "#172554", "#1e3a8a", "#0c4a6e",
-    "#164e63", "#083344", "#111827", "#1e1b4b", "#14532d"
+    "#134e4a", "#0e7490", "#155e75", "#1e3a8a", "#1d4ed8",
+    "#0284c7", "#0369a1", "#0f766e", "#1e40af", "#2563eb"
 ]
 
 
@@ -879,21 +879,60 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
         json.dump(full_dataset, f, ensure_ascii=False, indent=2, cls=NpEncoder)
     print(f" -> Guardado: world_map_data.json ({(output_dir / 'world_map_data.json').stat().st_size / 1024 / 1024:.2f} MB)")
 
-    # 14. Generar Base de Datos SQLite (world_map.db) para Android y consultas de IA sin saturar contexto
-    print("[Exportación] Generando base de datos relacional SQLite (world_map.db)...")
-    db_path = output_dir / "world_map.db"
-    if db_path.exists():
-        db_path.unlink()
+    # 14. Generar Bases de Datos SQLite Modulares y Especializadas
+    # Archivo A: world_overview.db (Ligero, información general para IA, diplomacia y selección de país)
+    # Archivo B: world_provinces.db (Detallado, microdatos para el motor de juego en Android)
+    # Archivo C: world_map.db (Unificado completo con ambas capas integradas)
+    print("[Exportación] Generando bases de datos relacionales SQLite particionadas...")
 
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
+    # Precalcular estadísticas agregadas de países
+    country_stats = {}
+    for p in provinces_list:
+        c_id = p["country_id"]
+        if c_id not in country_stats:
+            country_stats[c_id] = {
+                "total_provinces": 0,
+                "total_population": 0,
+                "total_manpower": 0,
+                "total_factories": 0,
+                "total_ports": 0,
+                "coastal_access": False
+            }
+        country_stats[c_id]["total_provinces"] += 1
+        country_stats[c_id]["total_population"] += p["population"]
+        country_stats[c_id]["total_manpower"] += p["manpower"]
+        country_stats[c_id]["total_factories"] += p["industrial_level"]
+        if p["is_coastal"]:
+            country_stats[c_id]["coastal_access"] = True
 
-    cur.execute("PRAGMA foreign_keys = ON;")
-    cur.execute("PRAGMA synchronous = OFF;")
-    cur.execute("PRAGMA journal_mode = MEMORY;")
+    for pt in ports_mapped:
+        c_id = pt.get("country")
+        if c_id in country_stats:
+            country_stats[c_id]["total_ports"] += 1
 
-    # Tabla metadata
-    cur.execute("""
+    # Precalcular fronteras internacionales a nivel de país
+    country_borders_set = set()
+    for p in provinces_list:
+        c_orig = p["country_id"]
+        for n_id in p["neighbors"]:
+            if 1 <= n_id <= len(provinces_list):
+                c_dest = provinces_list[n_id - 1]["country_id"]
+                if c_orig != c_dest:
+                    pair = tuple(sorted([c_orig, c_dest]))
+                    country_borders_set.add(pair)
+
+    # --- A) GENERAR world_overview.db (Base de Datos General) ---
+    overview_db_path = output_dir / "world_overview.db"
+    if overview_db_path.exists():
+        overview_db_path.unlink()
+
+    conn_ov = sqlite3.connect(overview_db_path)
+    cur_ov = conn_ov.cursor()
+    cur_ov.execute("PRAGMA foreign_keys = ON;")
+    cur_ov.execute("PRAGMA synchronous = OFF;")
+    cur_ov.execute("PRAGMA journal_mode = MEMORY;")
+
+    cur_ov.execute("""
     CREATE TABLE metadata (
         key TEXT PRIMARY KEY,
         value TEXT
@@ -901,9 +940,270 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     """)
     for k, v in full_dataset["metadata"].items():
         val_str = json.dumps(v, ensure_ascii=False, cls=NpEncoder) if isinstance(v, (dict, list)) else str(v)
+        cur_ov.execute("INSERT INTO metadata (key, value) VALUES (?, ?);", (k, val_str))
+
+    cur_ov.execute("""
+    CREATE TABLE countries_overview (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        iso_a2 TEXT,
+        iso_a3 TEXT,
+        continent TEXT,
+        subregion TEXT,
+        color_hex TEXT,
+        capital_name TEXT,
+        capital_lat REAL,
+        capital_lon REAL,
+        total_provinces INTEGER,
+        total_population INTEGER,
+        total_manpower INTEGER,
+        total_factories INTEGER,
+        total_ports INTEGER,
+        has_coast INTEGER
+    );
+    """)
+
+    for c_id, c_data in countries_dict.items():
+        stats = country_stats.get(c_id, {
+            "total_provinces": len(c_data.get("provinces", [])),
+            "total_population": 0,
+            "total_manpower": 0,
+            "total_factories": 0,
+            "total_ports": len(c_data.get("major_ports", [])),
+            "coastal_access": False
+        })
+        cap = c_data.get("capital")
+        cur_ov.execute("""
+        INSERT INTO countries_overview (
+            id, name, iso_a2, iso_a3, continent, subregion, color_hex,
+            capital_name, capital_lat, capital_lon, total_provinces,
+            total_population, total_manpower, total_factories, total_ports, has_coast
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        """, (
+            str(c_id),
+            str(c_data["name"]),
+            str(c_data["iso_a2"]),
+            str(c_data["iso_a3"]),
+            str(c_data["continent"]),
+            str(c_data["subregion"]),
+            str(c_data["color_hex"]),
+            cap["name"] if cap else None,
+            cap["lat"] if cap else None,
+            cap["lon"] if cap else None,
+            stats["total_provinces"],
+            stats["total_population"],
+            stats["total_manpower"],
+            stats["total_factories"],
+            stats["total_ports"],
+            1 if stats["coastal_access"] else 0
+        ))
+
+    cur_ov.execute("""
+    CREATE TABLE country_borders (
+        country_a TEXT NOT NULL,
+        country_b TEXT NOT NULL,
+        PRIMARY KEY (country_a, country_b),
+        FOREIGN KEY (country_a) REFERENCES countries_overview(id),
+        FOREIGN KEY (country_b) REFERENCES countries_overview(id)
+    );
+    """)
+    for (ca, cb) in sorted(country_borders_set):
+        if ca in countries_dict and cb in countries_dict:
+            cur_ov.execute("INSERT OR IGNORE INTO country_borders (country_a, country_b) VALUES (?, ?);", (ca, cb))
+
+    cur_ov.execute("""
+    CREATE TABLE strategic_straits (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        lat REAL,
+        lon REAL,
+        pixel_x INTEGER,
+        pixel_y INTEGER,
+        type TEXT,
+        connects TEXT
+    );
+    """)
+    for st in straits_mapped:
+        cur_ov.execute("""
+        INSERT INTO strategic_straits (id, name, lat, lon, pixel_x, pixel_y, type, connects)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+        """, (
+            st["id"], st["name"], st["lat"], st["lon"],
+            st["pixel_x"], st["pixel_y"], st["type"],
+            json.dumps(st.get("connects", []), ensure_ascii=False)
+        ))
+
+    cur_ov.execute("CREATE INDEX idx_ov_continent ON countries_overview(continent);")
+    cur_ov.execute("CREATE INDEX idx_ov_borders_a ON country_borders(country_a);")
+    cur_ov.execute("CREATE INDEX idx_ov_borders_b ON country_borders(country_b);")
+    conn_ov.commit()
+    conn_ov.close()
+    print(f" -> Guardado: world_overview.db ({overview_db_path.stat().st_size / 1024:.1f} KB)")
+
+    # --- B) GENERAR world_provinces.db (Detallada: Provincias, Topología y Mares) ---
+    provinces_db_path = output_dir / "world_provinces.db"
+    if provinces_db_path.exists():
+        provinces_db_path.unlink()
+
+    conn_pr = sqlite3.connect(provinces_db_path)
+    cur_pr = conn_pr.cursor()
+    cur_pr.execute("PRAGMA synchronous = OFF;")
+    cur_pr.execute("PRAGMA journal_mode = MEMORY;")
+
+    cur_pr.execute("""
+    CREATE TABLE provinces (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        country_id TEXT NOT NULL,
+        color_hex TEXT,
+        rgb_r INTEGER,
+        rgb_g INTEGER,
+        rgb_b INTEGER,
+        lat REAL,
+        lon REAL,
+        pixel_x INTEGER,
+        pixel_y INTEGER,
+        is_coastal INTEGER,
+        terrain TEXT,
+        population INTEGER,
+        manpower INTEGER,
+        resource TEXT,
+        resource_amount INTEGER,
+        industrial_level INTEGER,
+        is_capital INTEGER,
+        adjacent_seas TEXT,
+        neighbors TEXT
+    );
+    """)
+    for p in provinces_list:
+        cur_pr.execute("""
+        INSERT INTO provinces (
+            id, name, country_id, color_hex, rgb_r, rgb_g, rgb_b,
+            lat, lon, pixel_x, pixel_y, is_coastal, terrain,
+            population, manpower, resource, resource_amount,
+            industrial_level, is_capital, adjacent_seas, neighbors
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        """, (
+            int(p["id"]),
+            str(p["name"]),
+            str(p["country_id"]),
+            str(p["color_rgb"]["hex"] if isinstance(p["color_rgb"], dict) else p.get("color_hex", "")),
+            int(p["color_rgb"]["r"] if isinstance(p["color_rgb"], dict) else p["color_rgb"][0]),
+            int(p["color_rgb"]["g"] if isinstance(p["color_rgb"], dict) else p["color_rgb"][1]),
+            int(p["color_rgb"]["b"] if isinstance(p["color_rgb"], dict) else p["color_rgb"][2]),
+            float(p["center"]["lat"]),
+            float(p["center"]["lon"]),
+            int(p["center"]["pixel_x"]),
+            int(p["center"]["pixel_y"]),
+            1 if p["is_coastal"] else 0,
+            str(p["terrain"]),
+            int(p["population"]),
+            int(p["manpower"]),
+            str(p["resource"]),
+            int(p["resource_amount"]),
+            int(p["industrial_level"]),
+            1 if p["is_capital"] else 0,
+            json.dumps(p["adjacent_seas"], cls=NpEncoder),
+            json.dumps(p["neighbors"], cls=NpEncoder)
+        ))
+
+    # Tabla de adyacencias relacionales normalizada para búsqueda de caminos (Pathfinding A* en Rust)
+    cur_pr.execute("""
+    CREATE TABLE province_neighbors (
+        province_id INTEGER NOT NULL,
+        neighbor_id INTEGER NOT NULL,
+        PRIMARY KEY (province_id, neighbor_id),
+        FOREIGN KEY (province_id) REFERENCES provinces(id),
+        FOREIGN KEY (neighbor_id) REFERENCES provinces(id)
+    );
+    """)
+    for p in provinces_list:
+        p_id = p["id"]
+        for n_id in p["neighbors"]:
+            cur_pr.execute("INSERT OR IGNORE INTO province_neighbors (province_id, neighbor_id) VALUES (?, ?);", (p_id, n_id))
+
+    cur_pr.execute("""
+    CREATE TABLE sea_zones (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        featurecla TEXT,
+        rgb_r INTEGER,
+        rgb_g INTEGER,
+        rgb_b INTEGER,
+        lat REAL,
+        lon REAL,
+        pixel_x INTEGER,
+        pixel_y INTEGER,
+        adjacent_seas TEXT,
+        adjacent_provinces TEXT
+    );
+    """)
+    for s in sea_zones_list:
+        cur_pr.execute("""
+        INSERT INTO sea_zones (
+            id, name, featurecla, rgb_r, rgb_g, rgb_b,
+            lat, lon, pixel_x, pixel_y, adjacent_seas, adjacent_provinces
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        """, (
+            int(s["id"]),
+            str(s["name"]),
+            str(s["type"]),
+            int(s["color_rgb"]["r"] if isinstance(s["color_rgb"], dict) else s["color_rgb"][0]),
+            int(s["color_rgb"]["g"] if isinstance(s["color_rgb"], dict) else s["color_rgb"][1]),
+            int(s["color_rgb"]["b"] if isinstance(s["color_rgb"], dict) else s["color_rgb"][2]),
+            float(s["center"]["lat"]),
+            float(s["center"]["lon"]),
+            int(s["center"]["pixel_x"]),
+            int(s["center"]["pixel_y"]),
+            json.dumps(s["adjacent_seas"], cls=NpEncoder),
+            json.dumps(s["adjacent_provinces"], cls=NpEncoder)
+        ))
+
+    cur_pr.execute("""
+    CREATE TABLE major_ports (
+        name TEXT PRIMARY KEY,
+        country_id TEXT,
+        lat REAL,
+        lon REAL,
+        pixel_x INTEGER,
+        pixel_y INTEGER,
+        sea TEXT
+    );
+    """)
+    for mp in ports_mapped:
+        cur_pr.execute("""
+        INSERT INTO major_ports (name, country_id, lat, lon, pixel_x, pixel_y, sea)
+        VALUES (?, ?, ?, ?, ?, ?, ?);
+        """, (
+            mp["name"], mp["country"], mp["lat"], mp["lon"],
+            mp["pixel_x"], mp["pixel_y"], mp.get("sea", "")
+        ))
+
+    cur_pr.execute("CREATE INDEX idx_provinces_country ON provinces(country_id);")
+    cur_pr.execute("CREATE INDEX idx_provinces_terrain ON provinces(terrain);")
+    cur_pr.execute("CREATE INDEX idx_provinces_coastal ON provinces(is_coastal);")
+    cur_pr.execute("CREATE INDEX idx_neighbors_source ON province_neighbors(province_id);")
+    cur_pr.execute("CREATE INDEX idx_neighbors_target ON province_neighbors(neighbor_id);")
+    conn_pr.commit()
+    conn_pr.close()
+    print(f" -> Guardado: world_provinces.db ({provinces_db_path.stat().st_size / 1024 / 1024:.2f} MB)")
+
+    # --- C) GENERAR world_map.db (Maestro Unificado para Android) ---
+    db_path = output_dir / "world_map.db"
+    if db_path.exists():
+        db_path.unlink()
+
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("PRAGMA foreign_keys = ON;")
+    cur.execute("PRAGMA synchronous = OFF;")
+    cur.execute("PRAGMA journal_mode = MEMORY;")
+
+    cur.execute("CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT);")
+    for k, v in full_dataset["metadata"].items():
+        val_str = json.dumps(v, ensure_ascii=False, cls=NpEncoder) if isinstance(v, (dict, list)) else str(v)
         cur.execute("INSERT INTO metadata (key, value) VALUES (?, ?);", (k, val_str))
 
-    # Tabla countries
     cur.execute("""
     CREATE TABLE countries (
         id TEXT PRIMARY KEY,
@@ -933,7 +1233,6 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
             json.dumps(c_data.get("major_ports", []), ensure_ascii=False, cls=NpEncoder)
         ))
 
-    # Tabla provinces
     cur.execute("""
     CREATE TABLE provinces (
         id INTEGER PRIMARY KEY,
@@ -992,7 +1291,33 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
             json.dumps(p["neighbors"], cls=NpEncoder)
         ))
 
-    # Tabla sea_zones
+    cur.execute("""
+    CREATE TABLE province_neighbors (
+        province_id INTEGER NOT NULL,
+        neighbor_id INTEGER NOT NULL,
+        PRIMARY KEY (province_id, neighbor_id),
+        FOREIGN KEY (province_id) REFERENCES provinces(id),
+        FOREIGN KEY (neighbor_id) REFERENCES provinces(id)
+    );
+    """)
+    for p in provinces_list:
+        p_id = p["id"]
+        for n_id in p["neighbors"]:
+            cur.execute("INSERT OR IGNORE INTO province_neighbors (province_id, neighbor_id) VALUES (?, ?);", (p_id, n_id))
+
+    cur.execute("""
+    CREATE TABLE country_borders (
+        country_a TEXT NOT NULL,
+        country_b TEXT NOT NULL,
+        PRIMARY KEY (country_a, country_b),
+        FOREIGN KEY (country_a) REFERENCES countries(id),
+        FOREIGN KEY (country_b) REFERENCES countries(id)
+    );
+    """)
+    for (ca, cb) in sorted(country_borders_set):
+        if ca in countries_dict and cb in countries_dict:
+            cur.execute("INSERT OR IGNORE INTO country_borders (country_a, country_b) VALUES (?, ?);", (ca, cb))
+
     cur.execute("""
     CREATE TABLE sea_zones (
         id INTEGER PRIMARY KEY,
@@ -1030,7 +1355,6 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
             json.dumps(s["adjacent_provinces"], cls=NpEncoder)
         ))
 
-    # Tabla strategic_straits
     cur.execute("""
     CREATE TABLE strategic_straits (
         id TEXT PRIMARY KEY,
@@ -1048,17 +1372,11 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
         INSERT INTO strategic_straits (id, name, lat, lon, pixel_x, pixel_y, type, connects)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?);
         """, (
-            st["id"],
-            st["name"],
-            st["lat"],
-            st["lon"],
-            st["pixel_x"],
-            st["pixel_y"],
-            st["type"],
+            st["id"], st["name"], st["lat"], st["lon"],
+            st["pixel_x"], st["pixel_y"], st["type"],
             json.dumps(st.get("connects", []), ensure_ascii=False)
         ))
 
-    # Tabla major_ports
     cur.execute("""
     CREATE TABLE major_ports (
         name TEXT PRIMARY KEY,
@@ -1075,20 +1393,16 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
         INSERT INTO major_ports (name, country_id, lat, lon, pixel_x, pixel_y, sea)
         VALUES (?, ?, ?, ?, ?, ?, ?);
         """, (
-            mp["name"],
-            mp["country"],
-            mp["lat"],
-            mp["lon"],
-            mp["pixel_x"],
-            mp["pixel_y"],
-            mp.get("sea", "")
+            mp["name"], mp["country"], mp["lat"], mp["lon"],
+            mp["pixel_x"], mp["pixel_y"], mp.get("sea", "")
         ))
 
-    # Índices para acelerar búsquedas en Android / consultas SQL
     cur.execute("CREATE INDEX idx_provinces_country ON provinces(country_id);")
     cur.execute("CREATE INDEX idx_provinces_terrain ON provinces(terrain);")
     cur.execute("CREATE INDEX idx_provinces_coastal ON provinces(is_coastal);")
     cur.execute("CREATE INDEX idx_sea_zones_name ON sea_zones(name);")
+    cur.execute("CREATE INDEX idx_master_neighbors_p ON province_neighbors(province_id);")
+    cur.execute("CREATE INDEX idx_master_country_borders ON country_borders(country_a);")
 
     conn.commit()
     conn.close()
@@ -1101,11 +1415,11 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     # A) Mapa Político Mundial con Mares Navegables, Puntos Estratégicos y Puertos
     print("[Renderizado 1/3] Generando world_provinces_political.png...")
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-    fig.patch.set_facecolor('#0f172a')
-    ax.set_facecolor('#0f172a')
+    fig.patch.set_facecolor('#0a3641')
+    ax.set_facecolor('#0a3641')
 
-    # 1. Zonas Marítimas con cuadrícula sutil
-    gdf_seas.plot(ax=ax, color=sea_colors_political, edgecolor='#1e293b', linewidth=0.35, alpha=0.92)
+    # 1. Zonas Marítimas con cuadrícula e iluminación oceánica
+    gdf_seas.plot(ax=ax, color=sea_colors_political, edgecolor='#164e63', linewidth=0.35, alpha=0.96)
     # 2. Provincias terrestres con paleta política corregida
     gdf_provinces.plot(ax=ax, color=prov_political_colors, edgecolor='#1f2937', linewidth=0.22)
     # 3. Fronteras soberanas de alto contraste
@@ -1124,7 +1438,7 @@ def build_world_map(scale: str, width: int, height: int, output_dir: Path, exclu
     ax.axis('off')
     plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
     plt.margins(0, 0)
-    plt.savefig(output_dir / "world_provinces_political.png", dpi=dpi, facecolor='#0f172a', bbox_inches='tight', pad_inches=0)
+    plt.savefig(output_dir / "world_provinces_political.png", dpi=dpi, facecolor='#0a3641', bbox_inches='tight', pad_inches=0)
     plt.close()
     print(" -> Guardado: world_provinces_political.png")
 

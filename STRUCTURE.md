@@ -28,7 +28,9 @@ Detalle de la jerarquía de directorios, módulos y componentes del juego, su mi
 │   └── requirements.txt               # Dependencias GIS (geopandas, shapely, matplotlib, pillow)
 │
 ├── map_data/                          # Salida de la Generación Cartográfica (artefactos)
-│   ├── world_map.db                   # Base de datos SQLite relacional indexada (eficiente para IA y Android)
+│   ├── world_overview.db              # Base SQLite ligera (países, fronteras internacionales, métricas, para IA)
+│   ├── world_provinces.db             # Base SQLite detallada (provincias, grafo de vecinos para pathfinding, mares)
+│   ├── world_map.db                   # Base SQLite unificada maestra
 │   ├── world_map_data.json            # Dataset maestro JSON con países, provincias, economía y adyacencias
 │   ├── world_provinces_blank.png      # Mapa táctico con delimitación de fronteras y mares
 │   ├── world_provinces_political.png  # Mapa coloreado por soberanía nacional, puertos y canales
